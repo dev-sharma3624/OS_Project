@@ -1,0 +1,17 @@
+# Ignore compiled object files
+*.o
+
+# Ignore the final binaries
+*.efi
+*.bin
+*.elf
+
+# Ignore the fake USB image folder (We build this on the fly)
+image/*
+dist/*
+
+# Ignore VS Code settings (Optional, but cleaner)
+.vscode/*
+
+# Ignore system junk
+.DS_Store
