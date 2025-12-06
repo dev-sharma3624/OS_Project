@@ -5,6 +5,10 @@
 
 #include "Data_Types.h"
 
+
+typedef struct EFI_GRAPHICS_OUTPUT_PROTCOL EFI_GRAPHICS_OUTPUT_PROTOCOL;
+
+
 typedef struct {
     UINT32 RedMask;
     UINT32 GreenMask;

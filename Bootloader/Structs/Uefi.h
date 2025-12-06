@@ -24,8 +24,7 @@
 #include "Simple_Text_Output_Protocol.h"
 #include "Simple_Text_Input_Protocol.h"
 #include "Boot_Services.h"
-#include "Efi_Table_Header.h"
-
+#include "Gop.h"
 
 typedef enum {
     EfiReservedMemoryType,
