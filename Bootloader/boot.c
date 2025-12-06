@@ -2,13 +2,42 @@
 
 
 EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
-    
-    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"I have the table!\r\n");
+
+    SystemTable->ConOut->ClearScreen(SystemTable->ConOut);
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Loading graphics driver");
+
+    EFI_GUID gopGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+    EFI_GRAPHICS_OUTPUT_PROTOCOL* gop;
+    EFI_STATUS Status;
+
+    Status = SystemTable->BootServices->LocateProtocol(&gopGuid, 0, (void**)&gop);
+
+    if(Status != 0){
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Error: Graphics Driver not loading");
+        while(1) { __asm__ __volatile__("hlt"); }
+    }
+
+    UINT64 frameBufferAddr = gop->Mode->FrameBufferBase;
+    UINT64 frameBufferSize = gop->Mode->FrameBufferSize;
+
+
+    UINT32* screen = (UINT32*) frameBufferAddr;
+
+    for(UINT64 i = 0; i < frameBufferSize; i++){
+        screen[i] = 0xFFFF8000;
+    }
+
+
+    while(1) { __asm__ __volatile__("hlt"); }
+
+    return 0;
+
+    /* SystemTable->ConOut->OutputString(SystemTable->ConOut, L"I have the table!\r\n");
 
     while(1) { 
     }
 
-    return 0;
+    return 0; */
 }
 
 /* 
