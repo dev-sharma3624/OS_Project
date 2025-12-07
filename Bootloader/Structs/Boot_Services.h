@@ -1,3 +1,6 @@
+#ifndef BOOT_SERVICES_H
+#define BOOT_SERVICES_H
+
 #include "Efi_Table_Header.h"
 
 
@@ -253,3 +256,5 @@ typedef struct {
 
 
 } EFI_BOOT_SERVICES;
+
+#endif

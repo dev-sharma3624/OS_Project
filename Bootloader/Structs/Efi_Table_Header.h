@@ -1,3 +1,6 @@
+#ifndef EFI_TABLE_HEADER_H
+#define EFI_TABLE_HEADER_H
+
 #include "Data_Types.h"
 
 typedef struct {
@@ -7,3 +10,5 @@ typedef struct {
     UINT32 CRC32;
     UINT32 Reserved;
 } EFI_TABLE_HEADER;
+
+#endif
