@@ -50,3 +50,8 @@ typedef UINTN       EFI_STATUS; // Status is just a native number (returns 0 for
 // If you are on Linux/Mac/WSL (GCC or Clang):
     #define EFIAPI __attribute__((ms_abi))
 #endif
+
+
+#ifndef NULL
+#define NULL ((void*)0)
+#endif
