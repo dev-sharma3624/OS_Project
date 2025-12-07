@@ -2,6 +2,17 @@
 
 
 EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
+    /* 
+
+    ................................................................................................
+    ................................................................................................
+
+    This variant was to fetch the GRAPHICS_OUTPUT_PROTOCOL using BOOT_SERVICES in EFI_SYSTEM_TABLE.
+    It was meant to verify that we were able to get the frame buffer base address along with frame
+    buffer size to manipulate the display device at a pixel level.
+
+    ................................................................................................
+    ................................................................................................
 
     SystemTable->ConOut->ClearScreen(SystemTable->ConOut);
     SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Loading graphics driver");
@@ -30,9 +41,26 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
 
     while(1) { __asm__ __volatile__("hlt"); }
 
-    return 0;
+    return 0; */
 
-    /* SystemTable->ConOut->OutputString(SystemTable->ConOut, L"I have the table!\r\n");
+
+
+
+
+
+    /* 
+
+    ................................................................................................
+    ................................................................................................
+
+    This variant was the first executable/runnable code that gave an output. It was meant to verify
+    that we were recieving the EFI_SYSTEM_TABLE that would be used for all the operations for loading
+    the kernel.
+
+    ................................................................................................
+    ................................................................................................
+
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"I have the table!\r\n");
 
     while(1) { 
     }
