@@ -1,7 +1,106 @@
 #include <Uefi.h>
+#include "Simple_File_System_Protocol.h"
+#include "Loaded_Image_Protocol.h"
+
+
+EFI_FILE_PROTOCOL* LoadFile(EFI_HANDLE handle, EFI_SYSTEM_TABLE* systemTable, CHAR16* path){
+    EFI_STATUS status;
+
+    EFI_GUID lop = EFI_LOADED_IMAGE_PROTOCOL_GUID;
+    EFI_LOADED_IMAGE_PROTOCOL* loadedImage;
+
+    status = systemTable->BootServices->HandleProtocol(handle, &lop, (void**)&loadedImage);
+
+    if (status != 0) {
+        systemTable->ConOut->OutputString(systemTable->ConOut, L"Error: Could not load LoadedImageProtocol\r\n");
+        while(1) { __asm__ __volatile__("hlt"); }
+        return NULL;
+    }
+
+    EFI_GUID fs = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *fileProtocol;
+
+    status = systemTable->BootServices->HandleProtocol(
+        loadedImage->DeviceHandle,
+        &fs,
+        (void**)&fileProtocol
+    );
+
+    if (status != 0) {
+        systemTable->ConOut->OutputString(systemTable->ConOut, L"Error: Could not load FileSystemProtocol\r\n");
+        while(1) { __asm__ __volatile__("hlt"); }
+        return NULL;
+    }
+
+    EFI_FILE_PROTOCOL *root;
+    status = fileProtocol->OpenVolume(fileProtocol, &root);
+
+
+    if (status != 0) {
+        systemTable->ConOut->OutputString(systemTable->ConOut, L"Error: Could not open root directory\r\n");
+        while(1) { __asm__ __volatile__("hlt"); }
+        return NULL;
+    }
+
+    EFI_FILE_PROTOCOL *fileHandle;
+    status = root->Open(
+        root,
+        &fileHandle,
+        path,
+        EFI_FILE_MODE_READ,
+        0
+    );
+
+    if (status != 0) {
+        systemTable->ConOut->OutputString(systemTable->ConOut, L"Error: Could not find file\r\n");
+        while(1) { __asm__ __volatile__("hlt"); }
+        return NULL;
+    }
+
+    return fileHandle;
+
+}
 
 
 EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
+
+    EFI_FILE_PROTOCOL* kernelFile = LoadFile(ImageHandle, SystemTable, L"\\EFI\\BOOT\\kernel.txt");
+
+    if(kernelFile != NULL){
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"SUCCESS: Found kernel.txt! Reading...\r\n");
+
+        UINTN bufferSize = 100;
+        char buffer[101];
+
+        EFI_STATUS status =  kernelFile->Read(kernelFile, &bufferSize, buffer);
+
+        if(status == 0){
+            buffer[bufferSize] = 0;
+
+            SystemTable->ConOut->OutputString(SystemTable->ConOut, L"File Contents: ");
+
+            for(UINTN i = 0; i < bufferSize; i++){
+                CHAR16 string[2];
+
+                string[0] = (CHAR16)buffer[i];
+                string[1] = 0;
+
+                SystemTable->ConOut->OutputString(SystemTable->ConOut, string);
+
+            }
+            SystemTable->ConOut->OutputString(SystemTable->ConOut, L"\r\n");
+            while(1) { __asm__ __volatile__("hlt"); }
+        }else {
+            SystemTable->ConOut->OutputString(SystemTable->ConOut, L"ERROR: Read failed.\r\n");
+            while(1) { __asm__ __volatile__("hlt"); }
+        }
+
+        kernelFile->Close(kernelFile);
+
+    }
+
+    return 0;
+
     /* 
 
     ................................................................................................
@@ -13,7 +112,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
 
     ................................................................................................
     ................................................................................................
-
+    
     SystemTable->ConOut->ClearScreen(SystemTable->ConOut);
     SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Loading graphics driver");
 
