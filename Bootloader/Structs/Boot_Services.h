@@ -48,6 +48,15 @@ EFI_STATUS
     IN UINTN MapKey
 );
 
+typedef
+EFI_STATUS
+(EFIAPI *EFI_HANDLE_PROTOCOL) (
+    IN EFI_HANDLE Handle,
+    IN EFI_GUID *Protocol,
+    OUT VOID **Interface
+);
+
+
 
 typedef struct {
     EFI_TABLE_HEADER Hdr;
@@ -122,8 +131,7 @@ typedef struct {
     // EFI_UNINSTALL_PROTOCOL_INTERFACE UninstallProtocolInterface; // EFI 1.˓→0+
     void* UninstallProtocolInterface; // EFI 1.˓→0+
 
-    // EFI_HANDLE_PROTOCOL HandleProtocol; // EFI 1.˓→0+
-    void* HandleProtocol; // EFI 1.˓→0+
+    EFI_HANDLE_PROTOCOL HandleProtocol; // EFI 1.˓→0+
 
     // VOID* Reserved; // EFI 1.0+
     VOID* Reserved; // EFI 1.0+
