@@ -46,6 +46,14 @@ EFI_STATUS
     OUT VOID *Buffer
 );
 
+typedef
+EFI_STATUS
+(EFIAPI *EFI_FILE_SET_POSITION) (
+    IN EFI_FILE_PROTOCOL *This,
+    IN UINT64 Position
+);
+
+
 
 
 typedef struct _EFI_FILE_PROTOCOL {
@@ -58,16 +66,15 @@ typedef struct _EFI_FILE_PROTOCOL {
 
     EFI_FILE_READ Read;
 
-    /* // EFI_FILE_WRITE Write;
+    // EFI_FILE_WRITE Write;
     void* Write;
 
     // EFI_FILE_GET_POSITION GetPosition;
     void* GetPosition;
 
-    // EFI_FILE_SET_POSITION SetPosition;
-    void* SetPosition;
+    EFI_FILE_SET_POSITION SetPosition;
 
-    EFI_FILE_GET_INFO GetInfo;
+    /* EFI_FILE_GET_INFO GetInfo;
     EFI_FILE_SET_INFO SetInfo;
     EFI_FILE_FLUSH Flush;
     EFI_FILE_OPEN_EX OpenEx; // Added for revision 2

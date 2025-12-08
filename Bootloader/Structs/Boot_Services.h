@@ -4,6 +4,27 @@
 #include "Efi_Table_Header.h"
 
 
+typedef enum {
+    EfiReservedMemoryType,
+    EfiLoaderCode,
+    EfiLoaderData,
+    EfiBootServicesCode,
+    EfiBootServicesData,
+    EfiRuntimeServicesCode,
+    EfiRuntimeServicesData,
+    EfiConventionalMemory,
+    EfiUnusableMemory,
+    EfiACPIReclaimMemory,
+    EfiACPIMemoryNVS,
+    EfiMemoryMappedIO,
+    EfiMemoryMappedIOPortSpace,
+    EfiPalCode,
+    EfiPersistentMemory,
+    EfiUnacceptedMemoryType,
+    EfiMaxMemoryType
+} EFI_MEMORY_TYPE;
+
+
 typedef struct {
     UINT32 Type;
     EFI_PHYSICAL_ADDRESS PhysicalStart;
@@ -59,6 +80,24 @@ EFI_STATUS
     OUT VOID **Interface
 );
 
+typedef enum {
+    AllocateAnyPages,
+    AllocateMaxAddress,
+    AllocateAddress,
+    MaxAllocateType
+} EFI_ALLOCATE_TYPE;
+
+
+typedef
+EFI_STATUS
+(EFIAPI *EFI_ALLOCATE_PAGES) (
+    IN EFI_ALLOCATE_TYPE Type,
+    IN EFI_MEMORY_TYPE MemoryType,
+    IN UINTN Pages,
+    IN OUT EFI_PHYSICAL_ADDRESS *Memory
+);
+
+
 
 
 typedef struct {
@@ -80,8 +119,7 @@ typedef struct {
     // Memory Services
     //
 
-    // EFI_ALLOCATE_PAGES AllocatePages; // EFI 1.0+
-    void* AllocatePages; // EFI 1.0+
+    EFI_ALLOCATE_PAGES AllocatePages; // EFI 1.0+
 
     // EFI_FREE_PAGES FreePages; // EFI 1.0+
     void* FreePages; // EFI 1.0+

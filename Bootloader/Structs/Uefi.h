@@ -29,27 +29,6 @@
 #include "Boot_Services.h"
 #include "Gop.h"
 
-typedef enum {
-    EfiReservedMemoryType,
-    EfiLoaderCode,
-    EfiLoaderData,
-    EfiBootServicesCode,
-    EfiBootServicesData,
-    EfiRuntimeServicesCode,
-    EfiRuntimeServicesData,
-    EfiConventionalMemory,
-    EfiUnusableMemory,
-    EfiACPIReclaimMemory,
-    EfiACPIMemoryNVS,
-    EfiMemoryMappedIO,
-    EfiMemoryMappedIOPortSpace,
-    EfiPalCode,
-    EfiPersistentMemory,
-    EfiUnacceptedMemoryType,
-    EfiMaxMemoryType
-} EFI_MEMORY_TYPE;
-
-
 typedef EFI_STATUS (EFIAPI *EFI_SET_VIRTUAL_ADDRESS_MAP) (
     IN UINTN                  MemoryMapSize,
     IN UINTN                  DescriptorSize,
