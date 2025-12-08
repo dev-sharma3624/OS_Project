@@ -98,6 +98,21 @@ EFI_STATUS
 );
 
 
+typedef
+EFI_STATUS
+(EFIAPI *EFI_ALLOCATE_POOL) (
+    IN EFI_MEMORY_TYPE PoolType,
+    IN UINTN Size,
+    OUT VOID **Buffer
+);
+
+
+typedef
+EFI_STATUS
+(EFIAPI *EFI_STALL) (
+    IN UINTN Microseconds
+);
+
 
 
 typedef struct {
@@ -126,8 +141,7 @@ typedef struct {
 
     EFI_GET_MEMORY_MAP GetMemoryMap; // EFI 1.0+
 
-    // EFI_ALLOCATE_POOL AllocatePool; // EFI 1.0+
-    void* AllocatePool; // EFI 1.0+
+    EFI_ALLOCATE_POOL AllocatePool; // EFI 1.0+
 
     // EFI_FREE_POOL FreePool; // EFI 1.0+
     void* FreePool; // EFI 1.0+
@@ -220,8 +234,7 @@ typedef struct {
     // EFI_GET_NEXT_MONOTONIC_COUNT GetNextMonotonicCount; // EFI 1.0+
     void* GetNextMonotonicCount; // EFI 1.0+
 
-    // EFI_STALL Stall; // EFI 1.0+
-    void* Stall; // EFI 1.0+
+    EFI_STALL Stall; // EFI 1.0+
 
     // EFI_SET_WATCHDOG_TIMER SetWatchdogTimer; // EFI 1.0+
     void* SetWatchdogTimer; // EFI 1.0+

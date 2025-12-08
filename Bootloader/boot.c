@@ -4,6 +4,32 @@
 #include "Elf.h"
 #include "../boot_info.h"
 
+UINTN mapKey;
+
+EFI_MEMORY_DESCRIPTOR* GetMemoryMap(EFI_SYSTEM_TABLE* systemTable, UINTN* mapSize, UINTN* mapKey, UINTN* descriptorSize, UINT32* descriptorVersion){
+    EFI_STATUS status;
+    UINTN memMapSize = 0;
+    EFI_MEMORY_DESCRIPTOR* memMap = NULL;
+
+    status = systemTable->BootServices->GetMemoryMap(&memMapSize, memMap, mapKey, descriptorSize, descriptorVersion);
+
+    memMapSize += 2 * (*descriptorSize);
+
+    status = systemTable->BootServices->AllocatePool(EfiLoaderData, memMapSize, (void**)&memMap);
+    if(status != 0){
+        return NULL;
+    }
+
+    status = systemTable->BootServices->GetMemoryMap(&memMapSize, memMap, mapKey, descriptorSize, descriptorVersion);
+    if(status != 0){
+        return NULL;
+    }
+
+    *mapSize = memMapSize;
+    return memMap;
+
+}
+
 UINT64 LoadKernel(EFI_FILE_PROTOCOL* openFile, EFI_SYSTEM_TABLE* systemTable){
     
     EFI_STATUS status;
@@ -59,7 +85,6 @@ UINT64 LoadKernel(EFI_FILE_PROTOCOL* openFile, EFI_SYSTEM_TABLE* systemTable){
                 return 0;
             } else {
                 systemTable->ConOut->OutputString(systemTable->ConOut, L"SUCCESS: Allocation worked!\r\n");
-                PrintHex(systemTable, sgmtAdr);
             }
 
             openFile->SetPosition(openFile, phdr.p_offset);
@@ -141,6 +166,8 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
 
     EFI_STATUS status;
 
+    UINTN mapSize, descriptorSize;
+    UINT32 descriptorVersion;
 
     EFI_GUID gopGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
     EFI_GRAPHICS_OUTPUT_PROTOCOL* gop;
@@ -167,6 +194,14 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
         while(1);
     }
 
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"[4] Reading Memory Map... ");
+    
+
+    EFI_MEMORY_DESCRIPTOR* map = GetMemoryMap(SystemTable, &mapSize, &mapKey, &descriptorSize, &descriptorVersion);
+    if (map == NULL) {
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"FAIL (Map Error)\r\n");
+        while(1);
+    }
     SystemTable->ConOut->OutputString(SystemTable->ConOut, L"OK\r\n");
 
 
@@ -179,6 +214,9 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     bootInfo.screenWidth = gop->Mode->Info->HorizontalResolution;
     bootInfo.pixelPerScanLine = gop->Mode->Info->PixelsPerScanLine;
 
+    bootInfo.mMap = map;
+    bootInfo.mMapSize = mapSize;
+    bootInfo.mMapDescSize = descriptorSize;
 
 
     typedef void (*KernelStartFunc)(BOOT_INFO*);
@@ -203,7 +241,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     ................................................................................................
     ................................................................................................
 
-    EFI_FILE_PROTOCOL* kernelFile = LoadFile(ImageHandle, SystemTable, L"\\EFI\\BOOT\\kernel.txt");
+     EFI_FILE_PROTOCOL* kernelFile = LoadFile(ImageHandle, SystemTable, L"\\EFI\\BOOT\\kernel.txt");
 
     if(kernelFile != NULL){
         SystemTable->ConOut->OutputString(SystemTable->ConOut, L"SUCCESS: Found kernel.txt! Reading...\r\n");
@@ -238,7 +276,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
 
     }
 
-    return 0;
+    return 0; */
 
     /* 
 
@@ -324,6 +362,6 @@ lld-link /subsystem:efi_application \
          boot.o
 
 
-qemu-system-x86_64 -bios /usr/share/ovmf/OVMF.fd -drive format=raw,file=fat:rw:image
+qemu-system-x86_64 -bios /usr/share/ovmf/OVMF.fd -drive format=raw,file=fat:rw:image -m 256
 
  */
