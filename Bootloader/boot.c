@@ -1,6 +1,80 @@
 #include <Uefi.h>
 #include "Simple_File_System_Protocol.h"
 #include "Loaded_Image_Protocol.h"
+#include "Elf.h"
+#include "../boot_info.h"
+
+UINT64 LoadKernel(EFI_FILE_PROTOCOL* openFile, EFI_SYSTEM_TABLE* systemTable){
+    
+    EFI_STATUS status;
+
+    Elf64_Ehdr header;
+    UINTN headerSize = sizeof(Elf64_Ehdr);
+    status = openFile->Read(openFile, &headerSize, &header);
+
+    if(status != 0 || sizeof(Elf64_Ehdr) != sizeof(header)){
+        systemTable->ConOut->OutputString(systemTable->ConOut, L"Error: Could not load LoadedImageProtocol\r\n");
+        while(1) { __asm__ __volatile__("hlt"); }
+        return 0;
+    }
+
+    if(
+        header.e_ident[0] != 0x7f ||
+        header.e_ident[1] != 'E' ||
+        header.e_ident[2] != 'L' ||
+        header.e_ident[3] != 'F'
+    ){
+        systemTable->ConOut->OutputString(systemTable->ConOut, L"Error: File data is corrupt\r\n");
+        while(1) { __asm__ __volatile__("hlt"); }
+        return 0;
+    }
+
+    UINT64 nextHeaderPos = header.e_phoff;
+
+    for(int i = 0; i < header.e_phnum; i++){
+
+        openFile->SetPosition(openFile, nextHeaderPos);
+
+        Elf64_Phdr phdr;
+        UINT64 headerSize = header.e_phentsize;
+        openFile->Read(openFile, &headerSize, &phdr);
+
+        nextHeaderPos += header.e_phentsize;
+
+        if(phdr.p_type == 1){
+
+            UINTN pagesNeeded = (phdr.p_memsz + 0xFFF) / 0x1000;
+            EFI_PHYSICAL_ADDRESS sgmtAdr = phdr.p_vaddr;
+
+            status = systemTable->BootServices->AllocatePages(
+                AllocateAddress,
+                EfiLoaderData,
+                pagesNeeded,
+                &sgmtAdr
+            );
+
+            if (status != 0) {
+                systemTable->ConOut->OutputString(systemTable->ConOut, L"AllocatePages failed!\r\n");
+                while(1) { __asm__ __volatile__("hlt"); }
+                return 0;
+            } else {
+                systemTable->ConOut->OutputString(systemTable->ConOut, L"SUCCESS: Allocation worked!\r\n");
+                PrintHex(systemTable, sgmtAdr);
+            }
+
+            openFile->SetPosition(openFile, phdr.p_offset);
+
+            UINTN fileSize = phdr.p_filesz;
+            openFile->Read(openFile, &fileSize, (void*)sgmtAdr);
+
+
+        }
+
+    }
+
+    return header.e_entry;
+
+}
 
 
 EFI_FILE_PROTOCOL* LoadFile(EFI_HANDLE handle, EFI_SYSTEM_TABLE* systemTable, CHAR16* path){
@@ -63,6 +137,71 @@ EFI_FILE_PROTOCOL* LoadFile(EFI_HANDLE handle, EFI_SYSTEM_TABLE* systemTable, CH
 
 
 EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
+
+
+    EFI_STATUS status;
+
+
+    EFI_GUID gopGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+    EFI_GRAPHICS_OUTPUT_PROTOCOL* gop;
+
+    status = SystemTable->BootServices->LocateProtocol(&gopGuid, 0, (void **)&gop);
+
+    if(status != 0){
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Error: Graphics Driver not loading");
+        while(1) { __asm__ __volatile__("hlt"); }
+    }
+
+    EFI_FILE_PROTOCOL* kernelFile = LoadFile(ImageHandle, SystemTable, L"\\EFI\\BOOT\\kernel.elf");
+
+    if(kernelFile == NULL){
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"ERROR: Read failed.\r\n");
+        while(1) { __asm__ __volatile__("hlt"); }
+    }
+
+
+    UINT64 entryPoint = LoadKernel(kernelFile, SystemTable);
+
+    if (entryPoint == 0) {
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"FAIL (Invalid ELF)\r\n");
+        while(1);
+    }
+
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"OK\r\n");
+
+
+    kernelFile->Close(kernelFile);
+
+    BOOT_INFO bootInfo;
+    bootInfo.frameBufferBase = (void*)gop->Mode->FrameBufferBase;
+    bootInfo.frameBufferSize = gop->Mode->FrameBufferSize;
+    bootInfo.screenHeight = gop->Mode->Info->VerticalResolution;
+    bootInfo.screenWidth = gop->Mode->Info->HorizontalResolution;
+    bootInfo.pixelPerScanLine = gop->Mode->Info->PixelsPerScanLine;
+
+
+
+    typedef void (*KernelStartFunc)(BOOT_INFO*);
+    KernelStartFunc kernelStartFunc = (KernelStartFunc)entryPoint;
+
+    SystemTable->BootServices->Stall(5000000);
+
+    kernelStartFunc(&bootInfo);
+
+    return 0;
+
+
+    /*
+
+    ................................................................................................
+    ................................................................................................
+
+    This variant was to test loading and reading a .txt file from disk. This was necessary to validate
+    that we had that capability because otherwise it wouldn't be able to load, read and copy the kernel
+    .elf file to the RAM before exiting boot services.
+
+    ................................................................................................
+    ................................................................................................
 
     EFI_FILE_PROTOCOL* kernelFile = LoadFile(ImageHandle, SystemTable, L"\\EFI\\BOOT\\kernel.txt");
 
