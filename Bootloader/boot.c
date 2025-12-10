@@ -163,7 +163,6 @@ EFI_FILE_PROTOCOL* LoadFile(EFI_HANDLE handle, EFI_SYSTEM_TABLE* systemTable, CH
 
 EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
 
-
     EFI_STATUS status;
 
     UINTN mapSize, descriptorSize;
@@ -227,6 +226,84 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     kernelStartFunc(&bootInfo);
 
     return 0;
+
+/* 
+
+    ................................................................................................
+    ................................................................................................
+
+    This variant was able to load the kernel file, copy it to the primary memory and start running it.
+    It was also able to fetch the memory map and pass it's entry point to kernel along with the 
+    graphics information like FrameBufferBaseAddress and FrameBufferSize.
+
+    As a result we were able to change the color of the screen from the kernel!
+
+    ................................................................................................
+    ................................................................................................
+
+    EFI_STATUS status;
+
+    UINTN mapSize, descriptorSize;
+    UINT32 descriptorVersion;
+
+    EFI_GUID gopGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+    EFI_GRAPHICS_OUTPUT_PROTOCOL* gop;
+
+    status = SystemTable->BootServices->LocateProtocol(&gopGuid, 0, (void **)&gop);
+
+    if(status != 0){
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Error: Graphics Driver not loading");
+        while(1) { __asm__ __volatile__("hlt"); }
+    }
+
+    EFI_FILE_PROTOCOL* kernelFile = LoadFile(ImageHandle, SystemTable, L"\\EFI\\BOOT\\kernel.elf");
+
+    if(kernelFile == NULL){
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"ERROR: Read failed.\r\n");
+        while(1) { __asm__ __volatile__("hlt"); }
+    }
+
+
+    UINT64 entryPoint = LoadKernel(kernelFile, SystemTable);
+
+    if (entryPoint == 0) {
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"FAIL (Invalid ELF)\r\n");
+        while(1);
+    }
+
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"[4] Reading Memory Map... ");
+    
+
+    EFI_MEMORY_DESCRIPTOR* map = GetMemoryMap(SystemTable, &mapSize, &mapKey, &descriptorSize, &descriptorVersion);
+    if (map == NULL) {
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"FAIL (Map Error)\r\n");
+        while(1);
+    }
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"OK\r\n");
+
+
+    kernelFile->Close(kernelFile);
+
+    BOOT_INFO bootInfo;
+    bootInfo.frameBufferBase = (void*)gop->Mode->FrameBufferBase;
+    bootInfo.frameBufferSize = gop->Mode->FrameBufferSize;
+    bootInfo.screenHeight = gop->Mode->Info->VerticalResolution;
+    bootInfo.screenWidth = gop->Mode->Info->HorizontalResolution;
+    bootInfo.pixelPerScanLine = gop->Mode->Info->PixelsPerScanLine;
+
+    bootInfo.mMap = map;
+    bootInfo.mMapSize = mapSize;
+    bootInfo.mMapDescSize = descriptorSize;
+
+
+    typedef void (*KernelStartFunc)(BOOT_INFO*);
+    KernelStartFunc kernelStartFunc = (KernelStartFunc)entryPoint;
+
+    SystemTable->BootServices->Stall(5000000);
+
+    kernelStartFunc(&bootInfo);
+
+    return 0; */
 
 
     /*
