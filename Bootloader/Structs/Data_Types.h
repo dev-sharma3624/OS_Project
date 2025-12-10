@@ -1,24 +1,22 @@
-#include <stdint.h> // Gives us uint32_t, uint64_t, etc.
-
 // -------------------------------------------------------------------------
 // 1. UEFI DATA TYPES (From Spec Chapter 2)
 // -------------------------------------------------------------------------
 
-typedef uint8_t     UINT8;
-typedef uint16_t    UINT16;
-typedef uint32_t    UINT32;
-typedef uint64_t    UINT64;
-typedef uint64_t    UINTN;      // "Native" Integer (64-bit on x64 Systems)
+typedef unsigned char     UINT8;
+typedef unsigned short int    UINT16;
+typedef unsigned int    UINT32;
+typedef unsigned long long    UINT64;
+typedef unsigned long long    UINTN;      // "Native" Integer (64-bit on x64 Systems)
 
-typedef int8_t      INT8;
-typedef int16_t     INT16;
-typedef int32_t     INT32;
-typedef int64_t     INT64;
-typedef int64_t     INTN;
+typedef signed char      INT8;
+typedef signed short int     INT16;
+typedef signed int     INT32;
+typedef signed long long     INT64;
+typedef signed long long     INTN;
 
 typedef void        VOID;
-typedef uint16_t    CHAR16;     // UEFI uses 2-byte characters (Unicode)
-typedef uint8_t     BOOLEAN;
+typedef unsigned short int    CHAR16;     // UEFI uses 2-byte characters (Unicode)
+typedef unsigned char     BOOLEAN;
 
 
 typedef UINT64 EFI_VIRTUAL_ADDRESS;
