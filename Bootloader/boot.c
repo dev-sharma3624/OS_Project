@@ -6,6 +6,23 @@
 
 UINTN mapKey;
 
+
+void PrintHex(EFI_SYSTEM_TABLE* SystemTable, UINT64 value) {
+    CHAR16* hexChars = (CHAR16*)L"0123456789ABCDEF";
+    CHAR16 buffer[20];
+    
+    // We print 16 digits (64-bit)
+    for (int i = 15; i >= 0; i--) {
+        buffer[i] = hexChars[value % 16];
+        value /= 16;
+    }
+    buffer[16] = 0; // Null terminator
+    
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"0x");
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, buffer);
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"\r\n");
+}
+
 EFI_MEMORY_DESCRIPTOR* GetMemoryMap(EFI_SYSTEM_TABLE* systemTable, UINTN* mapSize, UINTN* mapKey, UINTN* descriptorSize, UINT32* descriptorVersion){
     EFI_STATUS status;
     UINTN memMapSize = 0;
@@ -102,6 +119,55 @@ UINT64 LoadKernel(EFI_FILE_PROTOCOL* openFile, EFI_SYSTEM_TABLE* systemTable){
 }
 
 
+
+PSF1_FONT* loadFont(EFI_FILE_PROTOCOL* fontFile, EFI_SYSTEM_TABLE* systemTable){
+    EFI_STATUS status;
+
+    fontFile->SetPosition(fontFile, 0);
+
+    PSF1_HEADER* header;
+    UINTN headerSize = sizeof(PSF1_HEADER);
+    systemTable->BootServices->AllocatePool(EfiLoaderData, headerSize, (void**)&header);
+    fontFile->Read(fontFile, &headerSize, &header);
+
+    if(headerSize != sizeof(PSF1_HEADER)){
+        systemTable->ConOut->OutputString(systemTable->ConOut, L"Error: Could not read header of font file\r\n");
+        while(1) { __asm__ __volatile__("hlt"); }
+    }
+
+    if(header->fileIdentifier[0] != 0x36 || header->fileIdentifier[1] != 0x04){
+        systemTable->ConOut->OutputString(systemTable->ConOut, L"Error: Font file identifier mismatch\r\n");
+        PrintHex(systemTable, header->fileIdentifier[0]);
+        PrintHex(systemTable, header->fileIdentifier[1]);
+        // while(1) { __asm__ __volatile__("hlt"); }
+    }else{
+        systemTable->ConOut->OutputString(systemTable->ConOut, L"Success: Font file identifier matched\r\n");
+        PrintHex(systemTable, header->fileIdentifier[0]);
+        PrintHex(systemTable, header->fileIdentifier[1]);
+    }
+
+    UINTN glyphBufferSize;
+    if(header->mode == 1){
+        glyphBufferSize = header->charSize * 512;
+    }else{
+        glyphBufferSize = header->charSize * 256;
+    }
+
+    void* glyphBuffer;
+    systemTable->BootServices->AllocatePool(EfiLoaderData, glyphBufferSize, (void**)&glyphBuffer);
+    fontFile->SetPosition(fontFile, sizeof(PSF1_HEADER));
+    fontFile->Read(fontFile, &glyphBufferSize, glyphBuffer);
+
+    PSF1_FONT* font;
+    systemTable->BootServices->AllocatePool(EfiLoaderData, sizeof(PSF1_FONT), (void**)&font);
+    font->header = header;
+    font->glyphBuffer = glyphBuffer;
+
+    return font;
+}
+
+
+
 EFI_FILE_PROTOCOL* LoadFile(EFI_HANDLE handle, EFI_SYSTEM_TABLE* systemTable, CHAR16* path){
     EFI_STATUS status;
 
@@ -193,7 +259,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
         while(1);
     }
 
-    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"[4] Reading Memory Map... ");
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"[4] Reading Memory Map...\r\n");
     
 
     EFI_MEMORY_DESCRIPTOR* map = GetMemoryMap(SystemTable, &mapSize, &mapKey, &descriptorSize, &descriptorVersion);
@@ -201,10 +267,31 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
         SystemTable->ConOut->OutputString(SystemTable->ConOut, L"FAIL (Map Error)\r\n");
         while(1);
     }
-    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"OK\r\n");
 
 
     kernelFile->Close(kernelFile);
+
+    EFI_FILE_PROTOCOL* fontFile = LoadFile(ImageHandle, SystemTable,  L"\\EFI\\BOOT\\zap-light16.psf");
+
+    if(fontFile == NULL){
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"ERROR: Read failed for font file.\r\n");
+        while(1) { __asm__ __volatile__("hlt"); }
+    }else{
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"File read successfully.\r\n");
+    }
+
+    PSF1_FONT* font = loadFont(fontFile, SystemTable);
+    if (font == NULL) {
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"FAIL (Invalid font)\r\n");
+        while(1);
+    }else{
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Font loaded successfully\r\n");
+    }
+
+    
+
+    
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"OK\r\n");
 
     BOOT_INFO bootInfo;
     bootInfo.frameBufferBase = (void*)gop->Mode->FrameBufferBase;
@@ -212,6 +299,8 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     bootInfo.screenHeight = gop->Mode->Info->VerticalResolution;
     bootInfo.screenWidth = gop->Mode->Info->HorizontalResolution;
     bootInfo.pixelPerScanLine = gop->Mode->Info->PixelsPerScanLine;
+
+    bootInfo.font = font;
 
     bootInfo.mMap = map;
     bootInfo.mMapSize = mapSize;
