@@ -1,5 +1,6 @@
 #include "../boot_info.h"
 #include "BasicRenderer.h"
+#include "kprintf.h"
 
 void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo){
 
@@ -8,15 +9,46 @@ void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo){
     FrameBuffer frameBuffer = bootInfo->frameBuffer;
     PSF1_FONT* font = bootInfo->font;
 
+    // 1. Initialize the Global Renderer
+    BasicRenderer_Init(&frameBuffer, font, 0xff000000, 0xFFFF8000);
 
-    BasicRenderer basicRenderer;
-    BasicRenderer_Init(&basicRenderer, &frameBuffer, font);
-    basicRenderer.clearColor = 0xFFFF8000;
-    basicRenderer.color = 0xff000000;
+    // 2. Clear the screen (Blue background usually, or whatever your default is)
+    BasicRenderer_ClearScreen();
+
+    // 3. Test 1: Basic String & Char
+    kPrintf("Test 1: Hello World! %c\n", 'A');
+
+    // 4. Test 2: Decimal Integers (Positive & Negative)
+    kPrintf("Test 2: Integer: %d, Negative: %d\n", 1234, -5678);
+
+    // 5. Test 3: Hexadecimal
+    // 255 should print as 0xFF (or 0xff depending on your implementation)
+    kPrintf("Test 3: Hex: %x\n", 255);
+
+    // 6. Test 4: Pointers
+    // This prints the memory address of the bootInfo struct
+    kPrintf("Test 4: Pointer Address: %p\n", bootInfo);
+
+    // 7. Test 5: Mixed Formatting
+    kPrintf("Test 5: Mixed: %s is %d years old.\n", "Dev", 21);
+
+
+    /* 
+
+    ................................................................................................
+    ................................................................................................
+
+    This version of kernel was meant to test the BasicRenderer methods that would facilitate printing
+    of strings on the screen using the psf1 font.
+
+    ................................................................................................
+    ................................................................................................
     
-    BasicRenderer_ClearScreen(&basicRenderer);
-    BasicRenderer_Print(&basicRenderer, "Print is working\n");
-    BasicRenderer_Print(&basicRenderer, "Font renderer is working!");
+    BasicRenderer_Init(&frameBuffer, font, 0xff000000, 0xFFFF8000);
+    
+    BasicRenderer_ClearScreen();
+    BasicRenderer_Print("Print is working\n");
+    BasicRenderer_Print("Font renderer is working!"); */
 
     /*
 
@@ -45,14 +77,3 @@ void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo){
     
 
 }
-
-
-/* 
-
-gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I. -c Kernel/kernel.c -o Kernel/kernel.o
-gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I. -c Kernel/BasicRenderer.c -o Kernel/BasicRenderer.o
-
-ld -o kernel.elf -Ttext 0x8000000 -e kernelStart Kernel/kernel.o
-ld -Ttext 0x8000000 --entry kernelStart -o kernel.elf Kernel/kernel.o Kernel/BasicRenderer.o
-
- */
