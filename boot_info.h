@@ -24,6 +24,11 @@ typedef struct{
     int_t screenWidth;
     int_t screenHeight;
     int_t pixelPerScanLine;
+}  FrameBuffer;
+
+
+typedef struct{
+    FrameBuffer frameBuffer;
 
     PSF1_FONT* font;
 

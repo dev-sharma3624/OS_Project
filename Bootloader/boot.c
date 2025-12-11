@@ -128,7 +128,7 @@ PSF1_FONT* loadFont(EFI_FILE_PROTOCOL* fontFile, EFI_SYSTEM_TABLE* systemTable){
     PSF1_HEADER* header;
     UINTN headerSize = sizeof(PSF1_HEADER);
     systemTable->BootServices->AllocatePool(EfiLoaderData, headerSize, (void**)&header);
-    fontFile->Read(fontFile, &headerSize, &header);
+    fontFile->Read(fontFile, &headerSize, header);
 
     if(headerSize != sizeof(PSF1_HEADER)){
         systemTable->ConOut->OutputString(systemTable->ConOut, L"Error: Could not read header of font file\r\n");
@@ -294,11 +294,11 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     SystemTable->ConOut->OutputString(SystemTable->ConOut, L"OK\r\n");
 
     BOOT_INFO bootInfo;
-    bootInfo.frameBufferBase = (void*)gop->Mode->FrameBufferBase;
-    bootInfo.frameBufferSize = gop->Mode->FrameBufferSize;
-    bootInfo.screenHeight = gop->Mode->Info->VerticalResolution;
-    bootInfo.screenWidth = gop->Mode->Info->HorizontalResolution;
-    bootInfo.pixelPerScanLine = gop->Mode->Info->PixelsPerScanLine;
+    bootInfo.frameBuffer.frameBufferBase = (void*)gop->Mode->FrameBufferBase;
+    bootInfo.frameBuffer.frameBufferSize = gop->Mode->FrameBufferSize;
+    bootInfo.frameBuffer.screenHeight = gop->Mode->Info->VerticalResolution;
+    bootInfo.frameBuffer.screenWidth = gop->Mode->Info->HorizontalResolution;
+    bootInfo.frameBuffer.pixelPerScanLine = gop->Mode->Info->PixelsPerScanLine;
 
     bootInfo.font = font;
 
