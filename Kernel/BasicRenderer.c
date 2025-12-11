@@ -1,51 +1,59 @@
 #include "BasicRenderer.h"
 
-void BasicRenderer_PutPixel(BasicRenderer* basicRenderer, uint32 x, uint32 y, uint32 color){
-    uint32* pxlPtr = (uint32*)basicRenderer->frameBuffer->frameBufferBase;
+BasicRenderer globalRenderer;
 
-    pxlPtr += x + ( y * basicRenderer->frameBuffer->pixelPerScanLine);
+void BasicRenderer_PutPixel(uint32 x, uint32 y, uint32 color){
+    uint32* pxlPtr = (uint32*)globalRenderer.frameBuffer->frameBufferBase;
+
+    pxlPtr += x + ( y * globalRenderer.frameBuffer->pixelPerScanLine);
 
     *pxlPtr = color;
 }
 
-void BasicRenderer_Init(BasicRenderer* basicRenderer, FrameBuffer* frameBuffer, PSF1_FONT* font){
-    basicRenderer->frameBuffer = frameBuffer;
-    basicRenderer->font = font;
-    basicRenderer->color = 0xffffffff;
-    basicRenderer->clearColor = 0xff000000;
-    basicRenderer->cursorPosition.x = 0;
-    basicRenderer->cursorPosition.y = 0;
+void BasicRenderer_Init(FrameBuffer* frameBuffer, PSF1_FONT* font, unsigned int color, unsigned int clearColor){
+    globalRenderer.frameBuffer = frameBuffer;
+    globalRenderer.font = font;
+    globalRenderer.color = color;
+    globalRenderer.clearColor = clearColor;
+    globalRenderer.cursorPosition.x = 0;
+    globalRenderer.cursorPosition.y = 0;
 }
 
-void BasicRenderer_ClearScreen(BasicRenderer* basicRenderer){
-    uint64 fBase = (uint64)basicRenderer->frameBuffer->frameBufferBase;
-    uint64 bytesPerScanLine = basicRenderer->frameBuffer->pixelPerScanLine * 4;
-    uint64 fHeight = basicRenderer->frameBuffer->screenHeight;
+void BasicRenderer_ClearScreen(){
+    uint64 fBase = (uint64)globalRenderer.frameBuffer->frameBufferBase;
+    uint64 bytesPerScanLine = globalRenderer.frameBuffer->pixelPerScanLine * 4;
+    uint64 fHeight = globalRenderer.frameBuffer->screenHeight;
 
     for(uint64 verticalLine = 0; verticalLine < fHeight; verticalLine++){
 
         uint64 lineBasePtr = fBase + (verticalLine * bytesPerScanLine);
 
         uint32* currentPixel = (uint32*) lineBasePtr;
-        uint32* endOfLine = currentPixel + basicRenderer->frameBuffer->pixelPerScanLine;
+        uint32* endOfLine = currentPixel + globalRenderer.frameBuffer->pixelPerScanLine;
 
         while(currentPixel < endOfLine){
-            *currentPixel = basicRenderer->clearColor;
+            *currentPixel = globalRenderer.clearColor;
             currentPixel++;
         }
 
     }
 
-    basicRenderer->cursorPosition.x = 0;
-    basicRenderer->cursorPosition.y = 0;
+    globalRenderer.cursorPosition.x = 0;
+    globalRenderer.cursorPosition.y = 0;
 
 }
 
 
-void BasicRenderer_PutChar(BasicRenderer* basicRenderer, char c){
-    uint32* pixelPtr = (uint32*)basicRenderer->frameBuffer->frameBufferBase;
+void BasicRenderer_PutChar(char c){
 
-    char* fontPtr = (char*)basicRenderer->font->glyphBuffer + ( c * basicRenderer->font->header->charSize);
+    if(c == '\n'){
+        BasicRenderer_NextLine();
+        return;
+    }
+
+    uint32* pixelPtr = (uint32*)globalRenderer.frameBuffer->frameBufferBase;
+
+    char* fontPtr = (char*)globalRenderer.font->glyphBuffer + ( c * globalRenderer.font->header->charSize);
 
     for(long int y = 0; y < 16; y++){
 
@@ -54,10 +62,9 @@ void BasicRenderer_PutChar(BasicRenderer* basicRenderer, char c){
             if( *fontPtr & (0b10000000 >> x)){
 
                 BasicRenderer_PutPixel(
-                    basicRenderer,
-                    basicRenderer->cursorPosition.x + x,
-                    basicRenderer->cursorPosition.y + y,
-                    basicRenderer->color
+                    globalRenderer.cursorPosition.x + x,
+                    globalRenderer.cursorPosition.y + y,
+                    globalRenderer.color
                 );
 
             }
@@ -68,31 +75,27 @@ void BasicRenderer_PutChar(BasicRenderer* basicRenderer, char c){
 
     }
 
-    basicRenderer->cursorPosition.x += 8;
+    globalRenderer.cursorPosition.x += 8;
 
-    if(basicRenderer->cursorPosition.x + 8 > basicRenderer->frameBuffer->screenWidth){
-        BasicRenderer_NextLine(basicRenderer);
+    if(globalRenderer.cursorPosition.x + 8 > globalRenderer.frameBuffer->screenWidth){
+        BasicRenderer_NextLine();
     }
 
 }
 
 
-void BasicRenderer_NextLine(BasicRenderer* basicRenderer){
-    basicRenderer->cursorPosition.x = 0;
-    basicRenderer->cursorPosition.y += 16;
+void BasicRenderer_NextLine(){
+    globalRenderer.cursorPosition.x = 0;
+    globalRenderer.cursorPosition.y += 16;
 }
 
 
 
-void BasicRenderer_Print(BasicRenderer* basicRenderer, const char* str){
+void BasicRenderer_Print(const char* str){
     char* chr = (char*) str;
 
     while(*chr != 0){
-        if(*chr == '\n'){
-            BasicRenderer_NextLine(basicRenderer);
-        }else{
-            BasicRenderer_PutChar(basicRenderer, *chr);
-        }
+        BasicRenderer_PutChar(*chr);
         chr++;
     }
 }
