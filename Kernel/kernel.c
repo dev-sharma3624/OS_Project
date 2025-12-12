@@ -1,13 +1,13 @@
 #include "../boot_info.h"
 #include "BasicRenderer.h"
 #include "kprintf.h"
+BOOT_INFO bootInfo;
 
-void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo){
+void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo_recieved){
 
-    if(!bootInfo) return;
+    if(!bootInfo_recieved) return;
 
-    FrameBuffer frameBuffer = bootInfo->frameBuffer;
-    PSF1_FONT* font = bootInfo->font;
+    bootInfo = *bootInfo_recieved;
 
     // 1. Initialize the Global Renderer
     BasicRenderer_Init(&frameBuffer, font, 0xff000000, 0xFFFF8000);

@@ -260,14 +260,6 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     }
 
     SystemTable->ConOut->OutputString(SystemTable->ConOut, L"[4] Reading Memory Map...\r\n");
-    
-
-    EFI_MEMORY_DESCRIPTOR* map = GetMemoryMap(SystemTable, &mapSize, &mapKey, &descriptorSize, &descriptorVersion);
-    if (map == NULL) {
-        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"FAIL (Map Error)\r\n");
-        while(1);
-    }
-
 
     kernelFile->Close(kernelFile);
 
@@ -288,7 +280,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
         SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Font loaded successfully\r\n");
     }
 
-    
+    fontFile->Close(fontFile);
 
     
     SystemTable->ConOut->OutputString(SystemTable->ConOut, L"OK\r\n");
@@ -301,16 +293,31 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     bootInfo.frameBuffer.pixelPerScanLine = gop->Mode->Info->PixelsPerScanLine;
 
     bootInfo.font = font;
-
-    bootInfo.mMap = map;
-    bootInfo.mMapSize = mapSize;
-    bootInfo.mMapDescSize = descriptorSize;
-
+    
 
     typedef void (*KernelStartFunc)(BOOT_INFO*);
     KernelStartFunc kernelStartFunc = (KernelStartFunc)entryPoint;
+    
 
-    SystemTable->BootServices->Stall(5000000);
+    EFI_MEMORY_DESCRIPTOR* map = GetMemoryMap(SystemTable, &mapSize, &mapKey, &descriptorSize, &descriptorVersion);
+    if (map == NULL) {
+        SystemTable->ConOut->OutputString(SystemTable->ConOut, L"FAIL (Map Error)\r\n");
+        while(1);
+    }
+
+    while(1){
+        SystemTable->BootServices->GetMemoryMap(&mapSize, map, &mapKey, &descriptorSize, &descriptorVersion);
+
+        bootInfo.mMap = map;
+        bootInfo.mMapSize = mapSize;
+        bootInfo.mMapDescSize = descriptorSize;
+
+        status = SystemTable->BootServices->ExitBootServices(ImageHandle, mapKey);
+
+        if (!EFI_ERROR(status)){
+            break;
+        }
+    }
 
     kernelStartFunc(&bootInfo);
 

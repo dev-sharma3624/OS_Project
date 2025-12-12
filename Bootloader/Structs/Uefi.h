@@ -22,6 +22,7 @@
 #define EFI_1_02_SYSTEM_TABLE_REVISION ((1<<16) | (02))
 #define EFI_SPECIFICATION_VERSION EFI_SYSTEM_TABLE_REVISION
 #define EFI_SYSTEM_TABLE_REVISION EFI_2_100_SYSTEM_TABLE_REVISION
+#define EFI_ERROR(status)  ((INTN)(status) < 0)
 
 
 #include "Simple_Text_Output_Protocol.h"
