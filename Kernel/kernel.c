@@ -1,6 +1,8 @@
 #include "../boot_info.h"
 #include "BasicRenderer.h"
 #include "kprintf.h"
+#include "Gdt.h"
+
 BOOT_INFO bootInfo;
 
 void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo_recieved){
@@ -8,6 +10,38 @@ void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo_recieved){
     if(!bootInfo_recieved) return;
 
     bootInfo = *bootInfo_recieved;
+
+    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+
+    BasicRenderer_ClearScreen();
+
+    kPrintf("Kernel initialized.\n");
+    kPrintf("Loading GDT...\n");
+
+    InitializeGDT();
+
+    unsigned short int currentCS;
+
+    __asm__ volatile ("mov %%cs, %0" : "=r"(currentCS));
+
+    kPrintf("Current CS Register: %x\n", currentCS);
+
+    kPrintf("GDT loaded successfully");
+    
+
+    /*
+
+    ................................................................................................
+    ................................................................................................
+
+    This version of kernel was meant to test the kPrintf() method that will help us print variables
+    like decimals, hexadecimals etc to the screen thus helping us in printing debugging messages.
+
+    ................................................................................................
+    ................................................................................................
+
+    FrameBuffer frameBuffer = bootInfo.frameBuffer;
+    PSF1_FONT* font = bootInfo.font;
 
     // 1. Initialize the Global Renderer
     BasicRenderer_Init(&frameBuffer, font, 0xff000000, 0xFFFF8000);
@@ -30,7 +64,7 @@ void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo_recieved){
     kPrintf("Test 4: Pointer Address: %p\n", bootInfo);
 
     // 7. Test 5: Mixed Formatting
-    kPrintf("Test 5: Mixed: %s is %d years old.\n", "Dev", 21);
+    kPrintf("Test 5: Mixed: %s is %d years old.\n", "Dev", 21); */
 
 
     /* 
