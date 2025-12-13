@@ -2,6 +2,7 @@
 #include "BasicRenderer.h"
 #include "kprintf.h"
 #include "Gdt.h"
+#include "Idt.h"
 
 BOOT_INFO bootInfo;
 
@@ -20,13 +21,48 @@ void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo_recieved){
 
     InitializeGDT();
 
+    kPrintf("GDT loaded successfully\n");
+
+    kPrintf("Loading IDT...\n");
+
+    InitializeIdt();
+    kPrintf("IDT loaded successfully\n");
+
+    kPrintf("Preparing to crash...\n");
+
+    volatile int a = 10;
+    volatile int b = 0;
+    int c = a / b;
+
+    kPrintf("If you see this, the OS survived (which is bad!)\n");
+
+    /* 
+
+    ................................................................................................
+    ................................................................................................
+
+    This version of kernel was loading the Global Descriptor Table to the CPU registers and verifying
+    the code segment register value to verfiy whether our GDT was loaded successfully or not.
+
+    ................................................................................................
+    ................................................................................................
+
+    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+    
+    BasicRenderer_ClearScreen();
+
+    kPrintf("Kernel initialized.\n");
+    kPrintf("Loading GDT...\n");
+
+    InitializeGDT();
+
     unsigned short int currentCS;
 
     __asm__ volatile ("mov %%cs, %0" : "=r"(currentCS));
 
     kPrintf("Current CS Register: %x\n", currentCS);
 
-    kPrintf("GDT loaded successfully");
+    kPrintf("GDT loaded successfully"); */
     
 
     /*
