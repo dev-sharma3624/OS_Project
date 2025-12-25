@@ -1,5 +1,6 @@
 #include "Idt.h"
 #include "kprintf.h"
+#include "Keyboard.h"
 
 IdtDescEntry mainIdt[256];
 
@@ -42,7 +43,7 @@ void InitializeIdt(){
     idtr.limit = (sizeof(IdtDescEntry) * 256) - 1;
     idtr.offset = (unsigned long long)&mainIdt;
 
-    SetIdtGate(0, DummyHandler, InterruptGate);
+    SetIdtGate(33, KeyboardHandler, InterruptGate);
 
     LoadIdt(&idtr);
 }

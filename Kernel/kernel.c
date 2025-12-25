@@ -4,6 +4,8 @@
 #include "Gdt.h"
 #include "Idt.h"
 #include "PIC.h"
+#include "Keyboard.h"
+#include "KeyboardMap.h"
 
 BOOT_INFO bootInfo;
 
@@ -32,10 +34,59 @@ void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo_recieved){
     kPrintf("Remapping PIC...\n");
     remapPIC();
     kPrintf("PIC remapping successfull\n");
+
+    __asm__ volatile ("sti"); 
+
+    kPrintf("Input enabled.\n\n");
+    
+    while (1)
+    {
+        unsigned char scanCode = ReadKey();
+        if(scanCode != 0){
+            if(scanCode < 0x3A){
+                char ascii = scanCodeLookupTable[scanCode];
+
+                if(ascii != 0){
+                    kPrintf("%c", ascii);
+                }
+            }
+        }
+
+    }
+
+    /* 
+
+    ................................................................................................
+    ................................................................................................
+
+    This version of kernel successfully remapped PIC to move hardware interrupts from 0-15 to 32-47
+
+    ................................................................................................
+    ................................................................................................
+    
+    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+
+    BasicRenderer_ClearScreen();
+
+    kPrintf("Kernel initialized.\n");
+    kPrintf("Loading GDT...\n");
+
+    InitializeGDT();
+
+    kPrintf("GDT loaded successfully\n");
+
+    kPrintf("Loading IDT...\n");
+
+    InitializeIdt();
+    kPrintf("IDT loaded successfully\n");
+
+    kPrintf("Remapping PIC...\n");
+    remapPIC();
+    kPrintf("PIC remapping successfull\n");
     while (1)
     {
         __asm__ ("hlt");
-    }
+    } */
 
 
     /* 
