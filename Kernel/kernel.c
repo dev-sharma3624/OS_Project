@@ -3,6 +3,7 @@
 #include "kprintf.h"
 #include "Gdt.h"
 #include "Idt.h"
+#include "PIC.h"
 
 BOOT_INFO bootInfo;
 
@@ -28,13 +29,76 @@ void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo_recieved){
     InitializeIdt();
     kPrintf("IDT loaded successfully\n");
 
+    kPrintf("Remapping PIC...\n");
+    remapPIC();
+    kPrintf("PIC remapping successfull\n");
+    while (1)
+    {
+        __asm__ ("hlt");
+    }
+
+
+    /* 
+
+    ................................................................................................
+    ................................................................................................
+
+    This version of kernel was loading the GDT and IDT and testing a "Divide by zero" error that
+    triggers vector 0 of the interrupt table.
+
+    ................................................................................................
+    ................................................................................................
+
+    
+    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+
+    BasicRenderer_ClearScreen();
+
+    kPrintf("Kernel initialized.\n");
+    kPrintf("Loading GDT...\n");
+
+    InitializeGDT();
+
+    kPrintf("GDT loaded successfully\n");
+
+    kPrintf("Loading IDT...\n");
+
+    InitializeIdt();
+    kPrintf("IDT loaded successfully\n");
+
     kPrintf("Preparing to crash...\n");
 
     volatile int a = 10;
     volatile int b = 0;
     int c = a / b;
 
-    kPrintf("If you see this, the OS survived (which is bad!)\n");
+    kPrintf("If you see this, the OS survived (which is bad!)\n"); 
+
+
+    ***********************************************************************************************
+    ***********************************************************************************************
+
+    This is the dummy handler function that was getting triggered on divide by zero exception in this
+    version of kernel. Keeping it here in case it gets deleted from Idt.c file in later versions.
+
+    void DummyHandler() {
+        kPrintf("\n");
+        kPrintf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+        kPrintf("!!!      INTERRUPT RECEIVED          !!!\n");
+        kPrintf("!!!   Vector 0: Divide By Zero       !!!\n");
+        kPrintf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+        
+        // Halt the CPU forever so we can read the message
+        while(1) {
+            __asm__ volatile ("hlt");
+        }
+    }
+
+
+    ***********************************************************************************************
+    ***********************************************************************************************
+    
+    */
 
     /* 
 
@@ -140,10 +204,6 @@ void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo_recieved){
         frameBufferBase[i] = color;
     }
  */
-    while (1)
-    {
-        __asm__ ("hlt");
-    }
     
 
 }
