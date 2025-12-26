@@ -7,7 +7,58 @@
 #include "Keyboard.h"
 #include "KeyboardMap.h"
 
+#define MAX_COMMAND_BUFFER 256
+char commandBuffer[MAX_COMMAND_BUFFER];
+int bufferPosition = 0;
+
 BOOT_INFO bootInfo;
+
+int strcmp(const char* str1, const char* str2){
+
+    while(*str1 && (*str1 == *str2)){
+        str1++;
+        str2++;
+    }
+
+    return *(const unsigned char*) str1 - *(const unsigned char*)str2;
+
+}
+
+void clearBuffer(){
+    for(int i = 0; i < MAX_COMMAND_BUFFER; i++){
+        commandBuffer[i] = 0;
+    }
+    bufferPosition = 0;
+}
+
+void executeCommand(){
+    kPrintf("\n");
+
+    if(strcmp(commandBuffer, "help") == 0){
+        kPrintf("Available commands:\n");
+        kPrintf(" - help: Show this menu\n");
+        kPrintf(" - clear: Clean the screen\n");
+        kPrintf(" - reboot: Reboot the CPU\n");
+        kPrintf(" - drums of liberation: Awaken the Sun God!\n");
+    }
+
+    else if(strcmp(commandBuffer, "clear") == 0){
+        BasicRenderer_ClearScreen();
+    }
+
+    else if(strcmp(commandBuffer, "drums of liberation") == 0){
+        kPrintf("THE ONE PIECE IS REAL!\n");
+    }
+
+    else if (bufferPosition > 0){
+        kPrintf("Unknown command: ");
+        kPrintf("%s\n", commandBuffer);
+    };
+
+    clearBuffer();
+    kPrintf("Project D> ");
+    
+}
 
 void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo_recieved){
 
@@ -15,6 +66,88 @@ void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo_recieved){
 
     bootInfo = *bootInfo_recieved;
 
+    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+
+    BasicRenderer_ClearScreen();
+
+    kPrintf("Kernel initialized.\n");
+    kPrintf("Loading GDT...\n");
+
+    InitializeGDT();
+
+    kPrintf("GDT loaded successfully\n");
+
+    kPrintf("Loading IDT...\n");
+
+    InitializeIdt();
+    kPrintf("IDT loaded successfully\n");
+
+    kPrintf("Remapping PIC...\n");
+    remapPIC();
+    kPrintf("PIC remapping successfull\n");
+
+    __asm__ volatile ("sti"); 
+
+    kPrintf("Input enabled.\n\n\n\n");
+
+    kPrintf("DevOS v0.1. Type 'help'.\nDevOS> ");
+    
+    while (1)
+    {
+        unsigned char scanCode = ReadKey();
+        if(scanCode != 0){
+
+            if(scanCode & 0x80){
+                continue;
+            }
+            
+            if(scanCode == 0x0E){
+
+                if(bufferPosition > 0){
+
+                    bufferPosition--;
+                    commandBuffer[bufferPosition] = 0;
+
+
+                    kPrintf("\b");
+                }
+            }
+
+            else if (scanCode == 0x1C){
+                executeCommand();
+            }
+
+            if(scanCode < 0x3A){
+                char ascii = scanCodeLookupTable[scanCode];
+
+                if(ascii != 0){
+
+                    if(bufferPosition < MAX_COMMAND_BUFFER - 1){
+
+                        kPrintf("%c", ascii);
+                        commandBuffer[bufferPosition] = ascii;
+                        bufferPosition++;
+
+                    }
+                }
+            }
+        }
+
+        __asm__ volatile ("hlt");
+
+    }
+
+    /* 
+
+    ................................................................................................
+    ................................................................................................
+
+    This version of kernel was successfully able to print text on screen from keyboard interrupts.
+    Keyboard became alive here! 
+
+    ................................................................................................
+    ................................................................................................
+    
     BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
 
     BasicRenderer_ClearScreen();
@@ -52,7 +185,7 @@ void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo_recieved){
             }
         }
 
-    }
+    } */
 
     /* 
 
