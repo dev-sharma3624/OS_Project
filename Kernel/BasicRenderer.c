@@ -76,11 +76,33 @@ void BasicRenderer_ClearScreen(){
 
 }
 
+void BasicRenderer_Backspace(){
+    unsigned int currentX = globalRenderer.cursorPosition.x;
+    unsigned int currentY = globalRenderer.cursorPosition.y;
+
+    globalRenderer.cursorPosition.x -= 8;
+
+    for(long int y = 0; y < 16; y++){
+        for(long int x = 0; x < 8; x++){
+            BasicRenderer_PutPixel(
+                    globalRenderer.cursorPosition.x + x, // 0 + offset to pixel in current line
+                    globalRenderer.cursorPosition.y + y, // 0 + offset to current line
+                    globalRenderer.clearColor
+                );
+        }
+    }
+}
+
 
 void BasicRenderer_PutChar(char c){
 
     if(c == '\n'){ // moving to next line if character is EOL
         BasicRenderer_NextLine();
+        return;
+    }
+
+    if(c == '\b'){
+        BasicRenderer_Backspace();
         return;
     }
 
