@@ -305,7 +305,12 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
         while(1);
     }
 
+    UINTN bufferCapacity = mapSize + (descriptorSize * 2);
+
     while(1){
+
+        mapSize = bufferCapacity;
+
         SystemTable->BootServices->GetMemoryMap(&mapSize, map, &mapKey, &descriptorSize, &descriptorVersion);
 
         bootInfo.mMap = map;
