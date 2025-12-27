@@ -60,7 +60,7 @@ void executeCommand(){
     
 }
 
-void __attribute__((ms_abi)) kernelStart(BOOT_INFO* bootInfo_recieved){
+void kernelStart(BOOT_INFO* bootInfo_recieved){
 
     if(!bootInfo_recieved) return;
 
