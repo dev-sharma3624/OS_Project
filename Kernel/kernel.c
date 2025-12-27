@@ -6,6 +6,8 @@
 #include "PIC.h"
 #include "Keyboard.h"
 #include "KeyboardMap.h"
+#include "Memory.h"
+#include "Typedefs.h"
 
 #define MAX_COMMAND_BUFFER 256
 char commandBuffer[MAX_COMMAND_BUFFER];
@@ -86,6 +88,93 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
     remapPIC();
     kPrintf("PIC remapping successfull\n");
 
+    uint64_t mMapSize = GetMemorySize(&bootInfo);
+
+    kPrintf("Total memory: %p bytes\n", mMapSize);
+    kPrintf("Total memory: %d MB\n", (int) mMapSize / 1024 / 1024);
+
+    __asm__ volatile ("sti"); 
+
+    kPrintf("Input enabled.\n\n");
+
+    kPrintf("Project D v0.1. Type 'help'.\nProject D> ");
+    
+    while (1)
+    {
+        unsigned char scanCode = ReadKey();
+        if(scanCode != 0){
+
+            if(scanCode & 0x80){
+                continue;
+            }
+            
+            if(scanCode == 0x0E){
+
+                if(bufferPosition > 0){
+
+                    bufferPosition--;
+                    commandBuffer[bufferPosition] = 0;
+
+
+                    kPrintf("\b");
+                }
+            }
+
+            else if (scanCode == 0x1C){
+                executeCommand();
+            }
+
+            if(scanCode < 0x3A){
+                char ascii = scanCodeLookupTable[scanCode];
+
+                if(ascii != 0){
+
+                    if(bufferPosition < MAX_COMMAND_BUFFER - 1){
+
+                        kPrintf("%c", ascii);
+                        commandBuffer[bufferPosition] = ascii;
+                        bufferPosition++;
+
+                    }
+                }
+            }
+        }
+
+        __asm__ volatile ("hlt");
+
+    }
+}
+
+    /* 
+
+    ................................................................................................
+    ................................................................................................
+
+    This version of kernel had a basic working shell with few commands working!
+
+    ................................................................................................
+    ................................................................................................
+    
+    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+
+    BasicRenderer_ClearScreen();
+
+    kPrintf("Kernel initialized.\n");
+    kPrintf("Loading GDT...\n");
+
+    InitializeGDT();
+
+    kPrintf("GDT loaded successfully\n");
+
+    kPrintf("Loading IDT...\n");
+
+    InitializeIdt();
+    kPrintf("IDT loaded successfully\n");
+
+    kPrintf("Remapping PIC...\n");
+    remapPIC();
+    kPrintf("PIC remapping successfull\n");
+
     __asm__ volatile ("sti"); 
 
     kPrintf("Input enabled.\n\n\n\n");
@@ -135,7 +224,7 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
 
         __asm__ volatile ("hlt");
 
-    }
+    } */
 
     /* 
 
@@ -388,6 +477,3 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
         frameBufferBase[i] = color;
     }
  */
-    
-
-}
