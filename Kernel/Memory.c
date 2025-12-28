@@ -13,7 +13,7 @@ uint64_t GetMemorySize(BOOT_INFO* bootInfo){
 
     for(uint64_t i = 0; i < mMapEntries; i++){
 
-        MemoryDescriptor* desc = (MemoryDescriptor*) ((uint64_t*)bootInfo->mMap + (i * mMapDescSize));
+        MemoryDescriptor* desc = (MemoryDescriptor*) ((uint64_t)bootInfo->mMap + (i * mMapDescSize));
 
         if(desc->type == 7){
 
