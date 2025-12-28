@@ -8,6 +8,7 @@
 #include "KeyboardMap.h"
 #include "Memory.h"
 #include "Typedefs.h"
+#include "PageFrameAllocator.h"
 
 #define MAX_COMMAND_BUFFER 256
 char commandBuffer[MAX_COMMAND_BUFFER];
@@ -93,6 +94,34 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
     kPrintf("Total memory: %p bytes\n", mMapSize);
     kPrintf("Total memory: %d MB\n", (int) mMapSize / 1024 / 1024);
 
+    InitPageFrameAllocator(&bootInfo);
+    kPrintf("Page Frame Allocator Initialized!\n");
+
+    void* page1 = RequestPage();
+    kPrintf("Page 1 request: %p\n", (uint64_t)page1);
+
+    void* page2 = RequestPage();
+    kPrintf("Page 2 request: %p\n", (uint64_t)page2);
+
+    void* page3 = RequestPage();
+    kPrintf("Page 3 Request: %p\n", (uint64_t)page3);
+
+    void* page4= RequestPage();
+    kPrintf("Page 4 Request: %p\n", (uint64_t)page4);
+    
+    kPrintf("Freeing Page 1...\n");
+    FreePage(page1);
+
+    void* page5 = RequestPage();
+    kPrintf("Page 5 Request: %p\n", (uint64_t)page5);
+
+
+    if (page5 == page1) {
+        kPrintf("TEST PASSED: Memory Recycled!\n");
+    } else {
+        kPrintf("TEST FAILED: Allocator ignored the free page.\n");
+    }
+
     __asm__ volatile ("sti"); 
 
     kPrintf("Input enabled.\n\n");
@@ -144,6 +173,95 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
 
     }
 }
+
+    
+
+    /*
+
+    ................................................................................................
+    ................................................................................................
+
+    Here, we successfully used the memory data passed from the bootloader to calculate the total
+    available memory(RAM).
+
+    ................................................................................................
+    ................................................................................................ 
+
+    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+
+    BasicRenderer_ClearScreen();
+
+    kPrintf("Kernel initialized.\n");
+    kPrintf("Loading GDT...\n");
+
+    InitializeGDT();
+
+    kPrintf("GDT loaded successfully\n");
+
+    kPrintf("Loading IDT...\n");
+
+    InitializeIdt();
+    kPrintf("IDT loaded successfully\n");
+
+    kPrintf("Remapping PIC...\n");
+    remapPIC();
+    kPrintf("PIC remapping successfull\n");
+
+    uint64_t mMapSize = GetMemorySize(&bootInfo);
+
+    kPrintf("Total memory: %p bytes\n", mMapSize);
+    kPrintf("Total memory: %d MB\n", (int) mMapSize / 1024 / 1024);
+
+    __asm__ volatile ("sti"); 
+
+    kPrintf("Input enabled.\n\n");
+
+    kPrintf("Project D v0.1. Type 'help'.\nProject D> ");
+    
+    while (1)
+    {
+        unsigned char scanCode = ReadKey();
+        if(scanCode != 0){
+
+            if(scanCode & 0x80){
+                continue;
+            }
+            
+            if(scanCode == 0x0E){
+
+                if(bufferPosition > 0){
+
+                    bufferPosition--;
+                    commandBuffer[bufferPosition] = 0;
+
+
+                    kPrintf("\b");
+                }
+            }
+
+            else if (scanCode == 0x1C){
+                executeCommand();
+            }
+
+            if(scanCode < 0x3A){
+                char ascii = scanCodeLookupTable[scanCode];
+
+                if(ascii != 0){
+
+                    if(bufferPosition < MAX_COMMAND_BUFFER - 1){
+
+                        kPrintf("%c", ascii);
+                        commandBuffer[bufferPosition] = ascii;
+                        bufferPosition++;
+
+                    }
+                }
+            }
+        }
+
+        __asm__ volatile ("hlt");
+
+    } */
 
     /* 
 
