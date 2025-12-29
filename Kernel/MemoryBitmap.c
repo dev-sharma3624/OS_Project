@@ -16,7 +16,7 @@ bool GetMemoryBit(MemoryBitmap* memoryBitmap, uint64_t index){
         return false;
     }
 
-    uint8_t byteIndex = index / 8;
+    uint64_t byteIndex = index / 8;
     uint8_t bitIndex = index % 8;
     uint8_t bitIndexer = 0b10000000 >> bitIndex;
 

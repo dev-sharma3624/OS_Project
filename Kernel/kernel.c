@@ -34,6 +34,20 @@ void clearBuffer(){
     bufferPosition = 0;
 }
 
+
+void PrintMemoryInfo() {
+    uint64_t totalMemory = freeMemory + reservedMemory + usedMemory;
+
+    kPrintf("\n--- Memory Statistics ---\n");
+    kPrintf("Total RAM:    %d MB\n", totalMemory / 1024 / 1024);
+    kPrintf("Free RAM:     %d MB\n", freeMemory / 1024 / 1024);
+    kPrintf("Used RAM:     %d KB\n", usedMemory / 1024);
+    kPrintf("Reserved RAM: %d MB\n", reservedMemory / 1024 / 1024);
+
+    kPrintf("-------------------------\n");
+}
+
+
 void executeCommand(){
     kPrintf("\n");
 
@@ -42,11 +56,16 @@ void executeCommand(){
         kPrintf(" - help: Show this menu\n");
         kPrintf(" - clear: Clean the screen\n");
         kPrintf(" - reboot: Reboot the CPU\n");
+        kPrintf(" - meminfo: See how much RAM is being used\n");
         kPrintf(" - drums of liberation: Awaken the Sun God!\n");
     }
 
     else if(strcmp(commandBuffer, "clear") == 0){
         BasicRenderer_ClearScreen();
+    }
+
+    else if(strcmp(commandBuffer, "meminfo") == 0){
+        PrintMemoryInfo();
     }
 
     else if(strcmp(commandBuffer, "drums of liberation") == 0){

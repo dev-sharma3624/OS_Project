@@ -16,6 +16,8 @@ bool initialized = false;
 #define PAGE_SIZE 4096
 #define RESERVE_MEMORY() (freeMemory -= PAGE_SIZE,  reservedMemory += PAGE_SIZE)
 #define UNRESERVE_MEMORY() (freeMemory += PAGE_SIZE, reservedMemory -= PAGE_SIZE)
+#define PAGE_ALLOCATE() (usedMemory += PAGE_SIZE, freeMemory -= PAGE_SIZE)
+#define PAGE_FREE() (usedMemory -= PAGE_SIZE, freeMemory += PAGE_SIZE)
 
 void LockPages(void* address, uint64_t count);
 void UnlockPages(void* address, uint64_t count);
@@ -71,6 +73,8 @@ void* RequestPage(){
     if(result){
         uint64_t address = firstFreeIndex * 4096;
 
+        PAGE_ALLOCATE();
+
         return (void*) address;
     }
 }
@@ -80,6 +84,8 @@ void FreePage(void* address){
     uint64_t index = ((uint64_t) address) / 4096;
 
     bool result = SetMemoryBit(&bitmap, index, false);
+    
+    PAGE_FREE();
 
 }
 
