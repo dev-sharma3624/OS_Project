@@ -30,3 +30,22 @@ uint64_t GetMemorySize(BOOT_INFO* bootInfo){
     return totalMemory;
 
 }
+
+uint64_t FindSuitableMemorySegment(BOOT_INFO* bootInfo, uint64_t minimumSegmentSize){
+    size_t mMapEntries = bootInfo->mMapSize / bootInfo->mMapDescSize;
+
+    for(size_t i = 0; i < mMapEntries; i++){
+
+        MemoryDescriptor* desc = (MemoryDescriptor*) ((uint64_t)bootInfo->mMap + (i * bootInfo->mMapDescSize));
+
+        if(desc->type == 7){
+
+            uint64_t segmentSize = desc->numberOfPages * 4096;
+            if(segmentSize > minimumSegmentSize){
+                return desc->physicalStart;
+            }
+
+        }
+
+    }
+}

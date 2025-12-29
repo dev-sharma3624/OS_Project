@@ -6,7 +6,7 @@ void InitMemoryBitmap(MemoryBitmap* memoryBitmap, uint64_t size, uint8_t* addres
     memoryBitmap->address = address;
 
     for(uint64_t i = 0; i < size; i++){
-        address[i] = 0;
+        address[i] = 0xFF;
     }
 }
 
