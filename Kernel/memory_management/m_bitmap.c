@@ -1,5 +1,5 @@
-#include "typedefs.h"
-#include "m_bitmap.h"
+#include <typedefs.h>
+#include <memory_management/m_bitmap.h>
 
 void m_bitmap_init(memory_bitmap* memory_bitmap, uint64_t size, uint8_t* address){
     memory_bitmap->size = size;

@@ -1,4 +1,4 @@
-#include "io.h"
+#include <architecture/x86_64/io.h>
 
 void io_out_b(unsigned short int port, unsigned char value){
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));

@@ -1,8 +1,7 @@
-#include "memory.h"
-#include "typedefs.h"
-
-#include "../boot_info.h"
-#include "m_desc.h"
+#include <memory_management/memory.h>
+#include <typedefs.h>
+#include "../../boot_info.h"
+#include <memory_management/m_desc.h>
 
 uint64_t memory_get_m_size(boot_info_t* boot_info){
 

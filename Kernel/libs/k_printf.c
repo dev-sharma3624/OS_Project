@@ -1,5 +1,5 @@
-#include "k_printf.h"
-#include "font_renderer.h"
+#include <libs/k_printf.h>
+#include <drivers/font_renderer.h>
 
 void k_printf_reverse_string(char* s){
     char temp;

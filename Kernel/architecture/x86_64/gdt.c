@@ -1,4 +1,4 @@
-#include "gdt.h"
+#include <architecture/x86_64/gdt.h>
 
 gdt_t default_gdt;
 

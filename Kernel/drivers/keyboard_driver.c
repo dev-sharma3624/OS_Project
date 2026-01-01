@@ -1,5 +1,5 @@
-#include "keyboard_driver.h"
-#include "io.h"
+#include <drivers/keyboard_driver.h>
+#include <architecture/x86_64/io.h>
 
 #define KEYBOARD_DATA_PORT 0x60
 #define BUFFER_SIZE 256

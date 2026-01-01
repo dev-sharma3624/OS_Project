@@ -1,6 +1,6 @@
-#include "idt.h"
-#include "k_printf.h"
-#include "keyboard_driver.h"
+#include <architecture/x86_64/idt.h>
+#include <libs/k_printf.h>
+#include <drivers/keyboard_driver.h>
 
 idt_desc_entry_t main_idt[256];
 

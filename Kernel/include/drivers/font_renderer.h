@@ -1,5 +1,5 @@
 #pragma once
-#include <boot_info.h>
+#include "../../boot_info.h"
 
 typedef unsigned long long int uint64;
 typedef unsigned int uint32;

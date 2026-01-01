@@ -1,8 +1,8 @@
-#include "typedefs.h"
-#include "../boot_info.h"
-#include "memory.h"
-#include "m_bitmap.h"
-#include "m_desc.h"
+#include <typedefs.h>
+#include "../../boot_info.h"
+#include <memory_management/memory.h>
+#include <memory_management/m_bitmap.h>
+#include <memory_management/m_desc.h>
 
 static memory_bitmap bitmap;
 extern uint64_t _KernelStart;

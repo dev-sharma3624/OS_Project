@@ -1,5 +1,5 @@
-#include "pic.h"
-#include "io.h"
+#include <architecture/x86_64/pic.h>
+#include <architecture/x86_64/io.h>
 
 #define PIC1_COMMAND 0x20
 #define PIC1_DATA 0x21

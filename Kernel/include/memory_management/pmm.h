@@ -1,7 +1,7 @@
 #pragma once
 
-#include "typedefs.h"
-#include "../boot_info.h"
+#include <typedefs.h>
+#include "../../boot_info.h"
 
 
 extern uint64_t free_memory;

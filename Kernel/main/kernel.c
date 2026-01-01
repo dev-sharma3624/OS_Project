@@ -1,14 +1,14 @@
-#include "../boot_info.h"
-#include "font_renderer.h"
-#include "k_printf.h"
-#include "gdt.h"
-#include "idt.h"
-#include "pic.h"
-#include "keyboard_driver.h"
-#include "keyboard_map.h"
-#include "memory.h"
-#include "typedefs.h"
-#include "pmm.h"
+#include "../../boot_info.h"
+#include <drivers/font_renderer.h>
+#include <libs/k_printf.h>
+#include <architecture/x86_64/gdt.h>
+#include <architecture/x86_64/idt.h>
+#include <architecture/x86_64/pic.h>
+#include <drivers/keyboard_driver.h>
+#include <drivers/keyboard_map.h>
+#include <memory_management/memory.h>
+#include <typedefs.h>
+#include <memory_management/pmm.h>
 
 #define MAX_COMMAND_BUFFER 256
 char command_buffer[MAX_COMMAND_BUFFER];
