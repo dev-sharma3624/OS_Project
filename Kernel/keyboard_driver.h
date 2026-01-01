@@ -6,10 +6,10 @@ typedef struct {
     unsigned long int flags;
     unsigned long int sp;
     unsigned long int ss;
-} InterruptFrame;
+} interrupt_frame_t;
 
-__attribute__((interrupt)) void KeyboardHandler(InterruptFrame* frame);
-unsigned char ReadKey();
+__attribute__((interrupt)) void keyboard_driver_handler(interrupt_frame_t* frame);
+unsigned char read_key();
 
 
 

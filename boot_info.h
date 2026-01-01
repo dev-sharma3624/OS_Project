@@ -1,42 +1,34 @@
-#ifndef BOOT_INFO_H
-#define BOOT_INFO_H
-
-typedef unsigned long long size_t;
-typedef unsigned int int_t;
-typedef unsigned char char_t;
+#pragma once
 
 typedef struct {
-    char_t fileIdentifier[2];
-    char_t mode;
-    char_t charSize;
-} PSF1_HEADER;
+    unsigned char file_identifier[2];
+    unsigned char mode;
+    unsigned char char_size;
+} psf1_header_t;
 
 typedef struct {
-    PSF1_HEADER* header;
-    void* glyphBuffer;
-} PSF1_FONT;
+    psf1_header_t* header;
+    void* glyph_buffer;
+} psf1_font_t;
 
 
 
 typedef struct{
-    void* frameBufferBase;
-    size_t frameBufferSize;
-    int_t screenWidth;
-    int_t screenHeight;
-    int_t pixelPerScanLine;
-}  FrameBuffer;
+    void* frame_buffer_base;
+    unsigned long long frame_buffer_size;
+    unsigned int screen_width;
+    unsigned int screen_height;
+    unsigned int pixel_per_scan_line;
+} frame_buffer_t;
 
 
 typedef struct{
-    FrameBuffer frameBuffer;
+    frame_buffer_t frame_buffer;
 
-    PSF1_FONT* font;
+    psf1_font_t* font;
 
-    void* mMap;
-    size_t mMapSize;
-    size_t mMapDescSize;
+    void* m_map;
+    unsigned long long m_map_size;
+    unsigned long long m_map_desc_size;
 
-} BOOT_INFO;
-
-
-#endif
+} boot_info_t;

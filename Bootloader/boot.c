@@ -120,48 +120,48 @@ UINT64 LoadKernel(EFI_FILE_PROTOCOL* openFile, EFI_SYSTEM_TABLE* systemTable){
 
 
 
-PSF1_FONT* loadFont(EFI_FILE_PROTOCOL* fontFile, EFI_SYSTEM_TABLE* systemTable){
+psf1_font_t* loadFont(EFI_FILE_PROTOCOL* fontFile, EFI_SYSTEM_TABLE* systemTable){
     EFI_STATUS status;
 
     fontFile->SetPosition(fontFile, 0);
 
-    PSF1_HEADER* header;
-    UINTN headerSize = sizeof(PSF1_HEADER);
+    psf1_header_t* header;
+    UINTN headerSize = sizeof(psf1_header_t);
     systemTable->BootServices->AllocatePool(EfiLoaderData, headerSize, (void**)&header);
     fontFile->Read(fontFile, &headerSize, header);
 
-    if(headerSize != sizeof(PSF1_HEADER)){
+    if(headerSize != sizeof(psf1_header_t)){
         systemTable->ConOut->OutputString(systemTable->ConOut, L"Error: Could not read header of font file\r\n");
         while(1) { __asm__ __volatile__("hlt"); }
     }
 
-    if(header->fileIdentifier[0] != 0x36 || header->fileIdentifier[1] != 0x04){
+    if(header->file_identifier[0] != 0x36 || header->file_identifier[1] != 0x04){
         systemTable->ConOut->OutputString(systemTable->ConOut, L"Error: Font file identifier mismatch\r\n");
-        PrintHex(systemTable, header->fileIdentifier[0]);
-        PrintHex(systemTable, header->fileIdentifier[1]);
+        PrintHex(systemTable, header->file_identifier[0]);
+        PrintHex(systemTable, header->file_identifier[1]);
         // while(1) { __asm__ __volatile__("hlt"); }
     }else{
         systemTable->ConOut->OutputString(systemTable->ConOut, L"Success: Font file identifier matched\r\n");
-        PrintHex(systemTable, header->fileIdentifier[0]);
-        PrintHex(systemTable, header->fileIdentifier[1]);
+        PrintHex(systemTable, header->file_identifier[0]);
+        PrintHex(systemTable, header->file_identifier[1]);
     }
 
     UINTN glyphBufferSize;
     if(header->mode == 1){
-        glyphBufferSize = header->charSize * 512;
+        glyphBufferSize = header->char_size * 512;
     }else{
-        glyphBufferSize = header->charSize * 256;
+        glyphBufferSize = header->char_size * 256;
     }
 
-    void* glyphBuffer;
-    systemTable->BootServices->AllocatePool(EfiLoaderData, glyphBufferSize, (void**)&glyphBuffer);
-    fontFile->SetPosition(fontFile, sizeof(PSF1_HEADER));
-    fontFile->Read(fontFile, &glyphBufferSize, glyphBuffer);
+    void* glyph_buffer;
+    systemTable->BootServices->AllocatePool(EfiLoaderData, glyphBufferSize, (void**)&glyph_buffer);
+    fontFile->SetPosition(fontFile, sizeof(psf1_header_t));
+    fontFile->Read(fontFile, &glyphBufferSize, glyph_buffer);
 
-    PSF1_FONT* font;
-    systemTable->BootServices->AllocatePool(EfiLoaderData, sizeof(PSF1_FONT), (void**)&font);
+    psf1_font_t* font;
+    systemTable->BootServices->AllocatePool(EfiLoaderData, sizeof(psf1_font_t), (void**)&font);
     font->header = header;
-    font->glyphBuffer = glyphBuffer;
+    font->glyph_buffer = glyph_buffer;
 
     return font;
 }
@@ -272,7 +272,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
         SystemTable->ConOut->OutputString(SystemTable->ConOut, L"File read successfully.\r\n");
     }
 
-    PSF1_FONT* font = loadFont(fontFile, SystemTable);
+    psf1_font_t* font = loadFont(fontFile, SystemTable);
     if (font == NULL) {
         SystemTable->ConOut->OutputString(SystemTable->ConOut, L"FAIL (Invalid font)\r\n");
         while(1);
@@ -285,17 +285,17 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     
     SystemTable->ConOut->OutputString(SystemTable->ConOut, L"OK\r\n");
 
-    BOOT_INFO bootInfo;
-    bootInfo.frameBuffer.frameBufferBase = (void*)gop->Mode->FrameBufferBase;
-    bootInfo.frameBuffer.frameBufferSize = gop->Mode->FrameBufferSize;
-    bootInfo.frameBuffer.screenHeight = gop->Mode->Info->VerticalResolution;
-    bootInfo.frameBuffer.screenWidth = gop->Mode->Info->HorizontalResolution;
-    bootInfo.frameBuffer.pixelPerScanLine = gop->Mode->Info->PixelsPerScanLine;
+    boot_info_t bootInfo;
+    bootInfo.frame_buffer.frame_buffer_base = (void*)gop->Mode->FrameBufferBase;
+    bootInfo.frame_buffer.frame_buffer_size = gop->Mode->FrameBufferSize;
+    bootInfo.frame_buffer.screen_height = gop->Mode->Info->VerticalResolution;
+    bootInfo.frame_buffer.screen_width = gop->Mode->Info->HorizontalResolution;
+    bootInfo.frame_buffer.pixel_per_scan_line = gop->Mode->Info->PixelsPerScanLine;
 
     bootInfo.font = font;
     
 
-    typedef void (*KernelStartFunc)(BOOT_INFO*);
+    typedef void (*KernelStartFunc)(boot_info_t*);
     KernelStartFunc kernelStartFunc = (KernelStartFunc)entryPoint;
     
 
@@ -313,9 +313,9 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
 
         SystemTable->BootServices->GetMemoryMap(&mapSize, map, &mapKey, &descriptorSize, &descriptorVersion);
 
-        bootInfo.mMap = map;
-        bootInfo.mMapSize = mapSize;
-        bootInfo.mMapDescSize = descriptorSize;
+        bootInfo.m_map = map;
+        bootInfo.m_map_size = mapSize;
+        bootInfo.m_map_desc_size = descriptorSize;
 
         status = SystemTable->BootServices->ExitBootServices(ImageHandle, mapKey);
 
@@ -334,7 +334,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     ................................................................................................
 
     This variant was able to load the kernel file, copy it to the primary memory and start running it.
-    It was also able to fetch the memory map and pass it's entry point to kernel along with the 
+    It was also able to fetch the memory map and pass it's entry point_t to kernel along with the 
     graphics information like FrameBufferBaseAddress and FrameBufferSize.
 
     As a result we were able to change the color of the screen from the kernel!
@@ -385,19 +385,19 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
 
     kernelFile->Close(kernelFile);
 
-    BOOT_INFO bootInfo;
-    bootInfo.frameBufferBase = (void*)gop->Mode->FrameBufferBase;
-    bootInfo.frameBufferSize = gop->Mode->FrameBufferSize;
-    bootInfo.screenHeight = gop->Mode->Info->VerticalResolution;
-    bootInfo.screenWidth = gop->Mode->Info->HorizontalResolution;
-    bootInfo.pixelPerScanLine = gop->Mode->Info->PixelsPerScanLine;
+    boot_info_t bootInfo;
+    bootInfo.frame_buffer_base = (void*)gop->Mode->FrameBufferBase;
+    bootInfo.frame_buffer_size = gop->Mode->FrameBufferSize;
+    bootInfo.screen_height = gop->Mode->Info->VerticalResolution;
+    bootInfo.screen_width = gop->Mode->Info->HorizontalResolution;
+    bootInfo.pixel_per_scan_line = gop->Mode->Info->PixelsPerScanLine;
 
-    bootInfo.mMap = map;
-    bootInfo.mMapSize = mapSize;
-    bootInfo.mMapDescSize = descriptorSize;
+    bootInfo.m_map = map;
+    bootInfo.m_map_size = mapSize;
+    bootInfo.m_map_desc_size = descriptorSize;
 
 
-    typedef void (*KernelStartFunc)(BOOT_INFO*);
+    typedef void (*KernelStartFunc)(boot_info_t*);
     KernelStartFunc kernelStartFunc = (KernelStartFunc)entryPoint;
 
     SystemTable->BootServices->Stall(5000000);
@@ -483,12 +483,12 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     }
 
     UINT64 frameBufferAddr = gop->Mode->FrameBufferBase;
-    UINT64 frameBufferSize = gop->Mode->FrameBufferSize;
+    UINT64 frame_buffer_size = gop->Mode->FrameBufferSize;
 
 
     UINT32* screen = (UINT32*) frameBufferAddr;
 
-    for(UINT64 i = 0; i < frameBufferSize; i++){
+    for(UINT64 i = 0; i < frame_buffer_size; i++){
         screen[i] = 0xFFFF8000;
     }
 

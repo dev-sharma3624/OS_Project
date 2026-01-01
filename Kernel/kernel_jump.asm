@@ -1,5 +1,5 @@
 [bits 64]
-[extern kernelStart] ; Function name of the Kernel C function
+[extern kernel_start] ; Function name of the Kernel C function
 [global _start]     ; This makes the symbol visible to the Linker
 
 section .text
@@ -24,10 +24,10 @@ _start:
     ;  we would enable SSE here. For now, it's fine).
 
     ; 4. Enter the C World
-    call kernelStart
+    call kernel_start
 
     ; 5. The Safety Net
-    ; If kernelStart ever returns (it shouldn't), we trap the CPU here.
+    ; If kernel_start ever returns (it shouldn't), we trap the CPU here.
     cli
     hlt
     jmp $

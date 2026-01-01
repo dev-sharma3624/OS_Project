@@ -1,9 +1,9 @@
 [bits 64]           ; "Hey assembler, generate 64-bit machine code."
-global LoadGDT      ; "Make this function visible to C files."
+global _LoadGDT      ; "Make this function visible to C files."
 
-LoadGDT:
+_LoadGDT:
     ; --- STEP 1: Tell CPU where the table is ---
-    ; In C, you called LoadGDT(&GDTDesc). 
+    ; In C, you called _LoadGDT(&gdt_descriptor). 
     ; The 'GDTDesc' pointer is passed in the register RDI.
     lgdt [rdi]      ; "Load Global Descriptor Table from the address in RDI."
                     ; Now the CPU knows WHERE the table is.

@@ -1,187 +1,187 @@
 #include "../boot_info.h"
-#include "BasicRenderer.h"
-#include "kprintf.h"
-#include "Gdt.h"
-#include "Idt.h"
-#include "PIC.h"
-#include "Keyboard.h"
-#include "KeyboardMap.h"
-#include "Memory.h"
-#include "Typedefs.h"
-#include "PageFrameAllocator.h"
+#include "font_renderer.h"
+#include "k_printf.h"
+#include "gdt.h"
+#include "idt.h"
+#include "pic.h"
+#include "keyboard_driver.h"
+#include "keyboard_map.h"
+#include "memory.h"
+#include "typedefs.h"
+#include "pmm.h"
 
 #define MAX_COMMAND_BUFFER 256
-char commandBuffer[MAX_COMMAND_BUFFER];
-int bufferPosition = 0;
+char command_buffer[MAX_COMMAND_BUFFER];
+int buffer_position = 0;
 
-BOOT_INFO bootInfo;
+boot_info_t boot_info;
 
-int strcmp(const char* str1, const char* str2){
+int kernel_str_cmp(const char* str_1, const char* str_2){
 
-    while(*str1 && (*str1 == *str2)){
-        str1++;
-        str2++;
+    while(*str_1 && (*str_1 == *str_2)){
+        str_1++;
+        str_2++;
     }
 
-    return *(const unsigned char*) str1 - *(const unsigned char*)str2;
+    return *(const unsigned char*) str_1 - *(const unsigned char*)str_2;
 
 }
 
-void clearBuffer(){
+void kernel_clear_buffer(){
     for(int i = 0; i < MAX_COMMAND_BUFFER; i++){
-        commandBuffer[i] = 0;
+        command_buffer[i] = 0;
     }
-    bufferPosition = 0;
+    buffer_position = 0;
 }
 
 
-void PrintMemoryInfo() {
-    uint64_t totalMemory = freeMemory + reservedMemory + usedMemory;
+void kernel_print_memory_info() {
+    uint64_t total_memory = free_memory + reserved_memory + used_memory;
 
-    kPrintf("\n--- Memory Statistics ---\n");
-    kPrintf("Total RAM:    %d MB\n", totalMemory / 1024 / 1024);
-    kPrintf("Free RAM:     %d MB\n", freeMemory / 1024 / 1024);
-    kPrintf("Used RAM:     %d KB\n", usedMemory / 1024);
-    kPrintf("Reserved RAM: %d MB\n", reservedMemory / 1024 / 1024);
+    k_printf("\n--- Memory Statistics ---\n");
+    k_printf("Total RAM:    %d MB\n", total_memory / 1024 / 1024);
+    k_printf("Free RAM:     %d MB\n", free_memory / 1024 / 1024);
+    k_printf("Used RAM:     %d KB\n", used_memory / 1024);
+    k_printf("Reserved RAM: %d MB\n", reserved_memory / 1024 / 1024);
 
-    kPrintf("-------------------------\n");
+    k_printf("-------------------------\n");
 }
 
 
-void executeCommand(){
-    kPrintf("\n");
+void kernel_execute_command(){
+    k_printf("\n");
 
-    if(strcmp(commandBuffer, "help") == 0){
-        kPrintf("Available commands:\n");
-        kPrintf(" - help: Show this menu\n");
-        kPrintf(" - clear: Clean the screen\n");
-        kPrintf(" - reboot: Reboot the CPU\n");
-        kPrintf(" - meminfo: See how much RAM is being used\n");
-        kPrintf(" - drums of liberation: Awaken the Sun God!\n");
+    if(kernel_str_cmp(command_buffer, "help") == 0){
+        k_printf("Available commands:\n");
+        k_printf(" - help: Show this menu\n");
+        k_printf(" - clear: Clean the screen\n");
+        k_printf(" - reboot: Reboot the CPU\n");
+        k_printf(" - meminfo: See how much RAM is being used\n");
+        k_printf(" - drums of liberation: Awaken the Sun God!\n");
     }
 
-    else if(strcmp(commandBuffer, "clear") == 0){
-        BasicRenderer_ClearScreen();
+    else if(kernel_str_cmp(command_buffer, "clear") == 0){
+        font_renderer_clear_screen();
     }
 
-    else if(strcmp(commandBuffer, "meminfo") == 0){
-        PrintMemoryInfo();
+    else if(kernel_str_cmp(command_buffer, "meminfo") == 0){
+        kernel_print_memory_info();
     }
 
-    else if(strcmp(commandBuffer, "drums of liberation") == 0){
-        kPrintf("THE ONE PIECE IS REAL!\n");
+    else if(kernel_str_cmp(command_buffer, "drums of liberation") == 0){
+        k_printf("THE ONE PIECE IS REAL!\n");
     }
 
-    else if (bufferPosition > 0){
-        kPrintf("Unknown command: ");
-        kPrintf("%s\n", commandBuffer);
+    else if (buffer_position > 0){
+        k_printf("Unknown command: ");
+        k_printf("%s\n", command_buffer);
     };
 
-    clearBuffer();
-    kPrintf("Project D> ");
+    kernel_clear_buffer();
+    k_printf("Project D> ");
     
 }
 
-void kernelStart(BOOT_INFO* bootInfo_recieved){
+void kernel_start(boot_info_t* boot_info_recieved){
 
-    if(!bootInfo_recieved) return;
+    if(!boot_info_recieved) return;
 
-    bootInfo = *bootInfo_recieved;
+    boot_info = *boot_info_recieved;
 
-    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+    font_renderer_init(&boot_info.frame_buffer, boot_info.font, 0xff000000, 0xFFFF8000);
 
-    BasicRenderer_ClearScreen();
+    font_renderer_clear_screen();
 
-    kPrintf("Kernel initialized.\n");
-    kPrintf("Loading GDT...\n");
+    k_printf("Kernel initialized.\n");
+    k_printf("Loading GDT...\n");
 
-    InitializeGDT();
+    gdt_init();
 
-    kPrintf("GDT loaded successfully\n");
+    k_printf("GDT loaded successfully\n");
 
-    kPrintf("Loading IDT...\n");
+    k_printf("Loading IDT...\n");
 
-    InitializeIdt();
-    kPrintf("IDT loaded successfully\n");
+    idt_init();
+    k_printf("IDT loaded successfully\n");
 
-    kPrintf("Remapping PIC...\n");
-    remapPIC();
-    kPrintf("PIC remapping successfull\n");
+    k_printf("Remapping PIC...\n");
+    remap_pic();
+    k_printf("PIC remapping successfull\n");
 
-    uint64_t mMapSize = GetMemorySize(&bootInfo);
+    uint64_t m_map_size = memory_get_m_size(&boot_info);
 
-    kPrintf("Total memory: %p bytes\n", mMapSize);
-    kPrintf("Total memory: %d MB\n", (int) mMapSize / 1024 / 1024);
+    k_printf("Total memory: %p bytes\n", m_map_size);
+    k_printf("Total memory: %d MB\n", (int) m_map_size / 1024 / 1024);
 
-    InitPageFrameAllocator(&bootInfo);
-    kPrintf("Page Frame Allocator Initialized!\n");
+    pmm_init(&boot_info);
+    k_printf("Page Frame Allocator Initialized!\n");
 
-    void* page1 = RequestPage();
-    kPrintf("Page 1 request: %p\n", (uint64_t)page1);
+    void* page1 = pmm_request_page();
+    k_printf("Page 1 request: %p\n", (uint64_t)page1);
 
-    void* page2 = RequestPage();
-    kPrintf("Page 2 request: %p\n", (uint64_t)page2);
+    void* page2 = pmm_request_page();
+    k_printf("Page 2 request: %p\n", (uint64_t)page2);
 
-    void* page3 = RequestPage();
-    kPrintf("Page 3 Request: %p\n", (uint64_t)page3);
+    void* page3 = pmm_request_page();
+    k_printf("Page 3 Request: %p\n", (uint64_t)page3);
 
-    void* page4= RequestPage();
-    kPrintf("Page 4 Request: %p\n", (uint64_t)page4);
+    void* page4= pmm_request_page();
+    k_printf("Page 4 Request: %p\n", (uint64_t)page4);
     
-    kPrintf("Freeing Page 1...\n");
-    FreePage(page1);
+    k_printf("Freeing Page 1...\n");
+    pmm_free_page(page1);
 
-    void* page5 = RequestPage();
-    kPrintf("Page 5 Request: %p\n", (uint64_t)page5);
+    void* page5 = pmm_request_page();
+    k_printf("Page 5 Request: %p\n", (uint64_t)page5);
 
 
     if (page5 == page1) {
-        kPrintf("TEST PASSED: Memory Recycled!\n");
+        k_printf("TEST PASSED: Memory Recycled!\n");
     } else {
-        kPrintf("TEST FAILED: Allocator ignored the free page.\n");
+        k_printf("TEST FAILED: Allocator ignored the free page.\n");
     }
 
     __asm__ volatile ("sti"); 
 
-    kPrintf("Input enabled.\n\n");
+    k_printf("Input enabled.\n\n");
 
-    kPrintf("Project D v0.1. Type 'help'.\nProject D> ");
+    k_printf("Project D v0.1. Type 'help'.\nProject D> ");
     
     while (1)
     {
-        unsigned char scanCode = ReadKey();
-        if(scanCode != 0){
+        unsigned char scan_code = read_key();
+        if(scan_code != 0){
 
-            if(scanCode & 0x80){
+            if(scan_code & 0x80){
                 continue;
             }
             
-            if(scanCode == 0x0E){
+            if(scan_code == 0x0E){
 
-                if(bufferPosition > 0){
+                if(buffer_position > 0){
 
-                    bufferPosition--;
-                    commandBuffer[bufferPosition] = 0;
+                    buffer_position--;
+                    command_buffer[buffer_position] = 0;
 
 
-                    kPrintf("\b");
+                    k_printf("\b");
                 }
             }
 
-            else if (scanCode == 0x1C){
-                executeCommand();
+            else if (scan_code == 0x1C){
+                kernel_execute_command();
             }
 
-            if(scanCode < 0x3A){
-                char ascii = scanCodeLookupTable[scanCode];
+            if(scan_code < 0x3A){
+                char ascii = scan_code_for_lookup_table[scan_code];
 
                 if(ascii != 0){
 
-                    if(bufferPosition < MAX_COMMAND_BUFFER - 1){
+                    if(buffer_position < MAX_COMMAND_BUFFER - 1){
 
-                        kPrintf("%c", ascii);
-                        commandBuffer[bufferPosition] = ascii;
-                        bufferPosition++;
+                        k_printf("%c", ascii);
+                        command_buffer[buffer_position] = ascii;
+                        buffer_position++;
 
                     }
                 }
@@ -206,72 +206,72 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
     ................................................................................................
     ................................................................................................ 
 
-    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+    font_renderer_init(&boot_info.frame_buffer, boot_info.font, 0xff000000, 0xFFFF8000);
 
-    BasicRenderer_ClearScreen();
+    font_renderer_clear_screen();
 
-    kPrintf("Kernel initialized.\n");
-    kPrintf("Loading GDT...\n");
+    k_printf("Kernel initialized.\n");
+    k_printf("Loading GDT...\n");
 
-    InitializeGDT();
+    gdt_init();
 
-    kPrintf("GDT loaded successfully\n");
+    k_printf("GDT loaded successfully\n");
 
-    kPrintf("Loading IDT...\n");
+    k_printf("Loading IDT...\n");
 
-    InitializeIdt();
-    kPrintf("IDT loaded successfully\n");
+    idt_init();
+    k_printf("IDT loaded successfully\n");
 
-    kPrintf("Remapping PIC...\n");
-    remapPIC();
-    kPrintf("PIC remapping successfull\n");
+    k_printf("Remapping PIC...\n");
+    remap_pic();
+    k_printf("PIC remapping successfull\n");
 
-    uint64_t mMapSize = GetMemorySize(&bootInfo);
+    uint64_t m_map_size = memory_get_m_size(&boot_info);
 
-    kPrintf("Total memory: %p bytes\n", mMapSize);
-    kPrintf("Total memory: %d MB\n", (int) mMapSize / 1024 / 1024);
+    k_printf("Total memory: %p bytes\n", m_map_size);
+    k_printf("Total memory: %d MB\n", (int) m_map_size / 1024 / 1024);
 
     __asm__ volatile ("sti"); 
 
-    kPrintf("Input enabled.\n\n");
+    k_printf("Input enabled.\n\n");
 
-    kPrintf("Project D v0.1. Type 'help'.\nProject D> ");
+    k_printf("Project D v0.1. Type 'help'.\nProject D> ");
     
     while (1)
     {
-        unsigned char scanCode = ReadKey();
-        if(scanCode != 0){
+        unsigned char scan_code = read_key();
+        if(scan_code != 0){
 
-            if(scanCode & 0x80){
+            if(scan_code & 0x80){
                 continue;
             }
             
-            if(scanCode == 0x0E){
+            if(scan_code == 0x0E){
 
-                if(bufferPosition > 0){
+                if(buffer_position > 0){
 
-                    bufferPosition--;
-                    commandBuffer[bufferPosition] = 0;
+                    buffer_position--;
+                    command_buffer[buffer_position] = 0;
 
 
-                    kPrintf("\b");
+                    k_printf("\b");
                 }
             }
 
-            else if (scanCode == 0x1C){
-                executeCommand();
+            else if (scan_code == 0x1C){
+                kernel_execute_command();
             }
 
-            if(scanCode < 0x3A){
-                char ascii = scanCodeLookupTable[scanCode];
+            if(scan_code < 0x3A){
+                char ascii = scan_code_for_lookup_table[scan_code];
 
                 if(ascii != 0){
 
-                    if(bufferPosition < MAX_COMMAND_BUFFER - 1){
+                    if(buffer_position < MAX_COMMAND_BUFFER - 1){
 
-                        kPrintf("%c", ascii);
-                        commandBuffer[bufferPosition] = ascii;
-                        bufferPosition++;
+                        k_printf("%c", ascii);
+                        command_buffer[buffer_position] = ascii;
+                        buffer_position++;
 
                     }
                 }
@@ -292,67 +292,67 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
     ................................................................................................
     ................................................................................................
     
-    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+    font_renderer_init(&boot_info.frame_buffer, boot_info.font, 0xff000000, 0xFFFF8000);
 
-    BasicRenderer_ClearScreen();
+    font_renderer_clear_screen();
 
-    kPrintf("Kernel initialized.\n");
-    kPrintf("Loading GDT...\n");
+    k_printf("Kernel initialized.\n");
+    k_printf("Loading GDT...\n");
 
-    InitializeGDT();
+    gdt_init();
 
-    kPrintf("GDT loaded successfully\n");
+    k_printf("GDT loaded successfully\n");
 
-    kPrintf("Loading IDT...\n");
+    k_printf("Loading IDT...\n");
 
-    InitializeIdt();
-    kPrintf("IDT loaded successfully\n");
+    idt_init();
+    k_printf("IDT loaded successfully\n");
 
-    kPrintf("Remapping PIC...\n");
-    remapPIC();
-    kPrintf("PIC remapping successfull\n");
+    k_printf("Remapping PIC...\n");
+    remap_pic();
+    k_printf("PIC remapping successfull\n");
 
     __asm__ volatile ("sti"); 
 
-    kPrintf("Input enabled.\n\n\n\n");
+    k_printf("Input enabled.\n\n\n\n");
 
-    kPrintf("DevOS v0.1. Type 'help'.\nDevOS> ");
+    k_printf("DevOS v0.1. Type 'help'.\nDevOS> ");
     
     while (1)
     {
-        unsigned char scanCode = ReadKey();
-        if(scanCode != 0){
+        unsigned char scan_code = read_key();
+        if(scan_code != 0){
 
-            if(scanCode & 0x80){
+            if(scan_code & 0x80){
                 continue;
             }
             
-            if(scanCode == 0x0E){
+            if(scan_code == 0x0E){
 
-                if(bufferPosition > 0){
+                if(buffer_position > 0){
 
-                    bufferPosition--;
-                    commandBuffer[bufferPosition] = 0;
+                    buffer_position--;
+                    command_buffer[buffer_position] = 0;
 
 
-                    kPrintf("\b");
+                    k_printf("\b");
                 }
             }
 
-            else if (scanCode == 0x1C){
-                executeCommand();
+            else if (scan_code == 0x1C){
+                kernel_execute_command();
             }
 
-            if(scanCode < 0x3A){
-                char ascii = scanCodeLookupTable[scanCode];
+            if(scan_code < 0x3A){
+                char ascii = scan_code_for_lookup_table[scan_code];
 
                 if(ascii != 0){
 
-                    if(bufferPosition < MAX_COMMAND_BUFFER - 1){
+                    if(buffer_position < MAX_COMMAND_BUFFER - 1){
 
-                        kPrintf("%c", ascii);
-                        commandBuffer[bufferPosition] = ascii;
-                        bufferPosition++;
+                        k_printf("%c", ascii);
+                        command_buffer[buffer_position] = ascii;
+                        buffer_position++;
 
                     }
                 }
@@ -374,39 +374,39 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
     ................................................................................................
     ................................................................................................
     
-    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+    font_renderer_init(&boot_info.frame_buffer, boot_info.font, 0xff000000, 0xFFFF8000);
 
-    BasicRenderer_ClearScreen();
+    font_renderer_clear_screen();
 
-    kPrintf("Kernel initialized.\n");
-    kPrintf("Loading GDT...\n");
+    k_printf("Kernel initialized.\n");
+    k_printf("Loading GDT...\n");
 
-    InitializeGDT();
+    gdt_init();
 
-    kPrintf("GDT loaded successfully\n");
+    k_printf("GDT loaded successfully\n");
 
-    kPrintf("Loading IDT...\n");
+    k_printf("Loading IDT...\n");
 
-    InitializeIdt();
-    kPrintf("IDT loaded successfully\n");
+    idt_init();
+    k_printf("IDT loaded successfully\n");
 
-    kPrintf("Remapping PIC...\n");
-    remapPIC();
-    kPrintf("PIC remapping successfull\n");
+    k_printf("Remapping PIC...\n");
+    remap_pic();
+    k_printf("PIC remapping successfull\n");
 
     __asm__ volatile ("sti"); 
 
-    kPrintf("Input enabled.\n\n");
+    k_printf("Input enabled.\n\n");
     
     while (1)
     {
-        unsigned char scanCode = ReadKey();
-        if(scanCode != 0){
-            if(scanCode < 0x3A){
-                char ascii = scanCodeLookupTable[scanCode];
+        unsigned char scan_code = read_key();
+        if(scan_code != 0){
+            if(scan_code < 0x3A){
+                char ascii = scan_code_for_lookup_table[scan_code];
 
                 if(ascii != 0){
-                    kPrintf("%c", ascii);
+                    k_printf("%c", ascii);
                 }
             }
         }
@@ -423,25 +423,25 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
     ................................................................................................
     ................................................................................................
     
-    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+    font_renderer_init(&boot_info.frame_buffer, boot_info.font, 0xff000000, 0xFFFF8000);
 
-    BasicRenderer_ClearScreen();
+    font_renderer_clear_screen();
 
-    kPrintf("Kernel initialized.\n");
-    kPrintf("Loading GDT...\n");
+    k_printf("Kernel initialized.\n");
+    k_printf("Loading GDT...\n");
 
-    InitializeGDT();
+    gdt_init();
 
-    kPrintf("GDT loaded successfully\n");
+    k_printf("GDT loaded successfully\n");
 
-    kPrintf("Loading IDT...\n");
+    k_printf("Loading IDT...\n");
 
-    InitializeIdt();
-    kPrintf("IDT loaded successfully\n");
+    idt_init();
+    k_printf("IDT loaded successfully\n");
 
-    kPrintf("Remapping PIC...\n");
-    remapPIC();
-    kPrintf("PIC remapping successfull\n");
+    k_printf("Remapping PIC...\n");
+    remap_pic();
+    k_printf("PIC remapping successfull\n");
     while (1)
     {
         __asm__ ("hlt");
@@ -460,29 +460,29 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
     ................................................................................................
 
     
-    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+    font_renderer_init(&boot_info.frame_buffer, boot_info.font, 0xff000000, 0xFFFF8000);
 
-    BasicRenderer_ClearScreen();
+    font_renderer_clear_screen();
 
-    kPrintf("Kernel initialized.\n");
-    kPrintf("Loading GDT...\n");
+    k_printf("Kernel initialized.\n");
+    k_printf("Loading GDT...\n");
 
-    InitializeGDT();
+    gdt_init();
 
-    kPrintf("GDT loaded successfully\n");
+    k_printf("GDT loaded successfully\n");
 
-    kPrintf("Loading IDT...\n");
+    k_printf("Loading IDT...\n");
 
-    InitializeIdt();
-    kPrintf("IDT loaded successfully\n");
+    idt_init();
+    k_printf("IDT loaded successfully\n");
 
-    kPrintf("Preparing to crash...\n");
+    k_printf("Preparing to crash...\n");
 
     volatile int a = 10;
     volatile int b = 0;
     int c = a / b;
 
-    kPrintf("If you see this, the OS survived (which is bad!)\n"); 
+    k_printf("If you see this, the OS survived (which is bad!)\n"); 
 
 
     ***********************************************************************************************
@@ -491,12 +491,12 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
     This is the dummy handler function that was getting triggered on divide by zero exception in this
     version of kernel. Keeping it here in case it gets deleted from Idt.c file in later versions.
 
-    void DummyHandler() {
-        kPrintf("\n");
-        kPrintf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-        kPrintf("!!!      INTERRUPT RECEIVED          !!!\n");
-        kPrintf("!!!   Vector 0: Divide By Zero       !!!\n");
-        kPrintf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+    void idt_dummy_handler() {
+        k_printf("\n");
+        k_printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+        k_printf("!!!      INTERRUPT RECEIVED          !!!\n");
+        k_printf("!!!   Vector 0: Divide By Zero       !!!\n");
+        k_printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
         
         // Halt the CPU forever so we can read the message
         while(1) {
@@ -521,22 +521,22 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
     ................................................................................................
     ................................................................................................
 
-    BasicRenderer_Init(&bootInfo.frameBuffer, bootInfo.font, 0xff000000, 0xFFFF8000);
+    font_renderer_init(&boot_info.frame_buffer, boot_info.font, 0xff000000, 0xFFFF8000);
     
-    BasicRenderer_ClearScreen();
+    font_renderer_clear_screen();
 
-    kPrintf("Kernel initialized.\n");
-    kPrintf("Loading GDT...\n");
+    k_printf("Kernel initialized.\n");
+    k_printf("Loading GDT...\n");
 
-    InitializeGDT();
+    gdt_init();
 
     unsigned short int currentCS;
 
     __asm__ volatile ("mov %%cs, %0" : "=r"(currentCS));
 
-    kPrintf("Current CS Register: %x\n", currentCS);
+    k_printf("Current CS Register: %x\n", currentCS);
 
-    kPrintf("GDT loaded successfully"); */
+    k_printf("GDT loaded successfully"); */
     
 
     /*
@@ -544,37 +544,37 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
     ................................................................................................
     ................................................................................................
 
-    This version of kernel was meant to test the kPrintf() method that will help us print variables
+    This version of kernel was meant to test the k_printf() method that will help us print variables
     like decimals, hexadecimals etc to the screen thus helping us in printing debugging messages.
 
     ................................................................................................
     ................................................................................................
 
-    FrameBuffer frameBuffer = bootInfo.frameBuffer;
-    PSF1_FONT* font = bootInfo.font;
+    frame_buffer_t frame_buffer = boot_info.frame_buffer;
+    psf1_font_t* font = boot_info.font;
 
     // 1. Initialize the Global Renderer
-    BasicRenderer_Init(&frameBuffer, font, 0xff000000, 0xFFFF8000);
+    font_renderer_init(&frame_buffer, font, 0xff000000, 0xFFFF8000);
 
     // 2. Clear the screen (Blue background usually, or whatever your default is)
-    BasicRenderer_ClearScreen();
+    font_renderer_clear_screen();
 
     // 3. Test 1: Basic String & Char
-    kPrintf("Test 1: Hello World! %c\n", 'A');
+    k_printf("Test 1: Hello World! %c\n", 'A');
 
     // 4. Test 2: Decimal Integers (Positive & Negative)
-    kPrintf("Test 2: Integer: %d, Negative: %d\n", 1234, -5678);
+    k_printf("Test 2: Integer: %d, Negative: %d\n", 1234, -5678);
 
     // 5. Test 3: Hexadecimal
     // 255 should print as 0xFF (or 0xff depending on your implementation)
-    kPrintf("Test 3: Hex: %x\n", 255);
+    k_printf("Test 3: Hex: %x\n", 255);
 
     // 6. Test 4: Pointers
-    // This prints the memory address of the bootInfo struct
-    kPrintf("Test 4: Pointer Address: %p\n", bootInfo);
+    // This prints the memory address of the boot_info struct
+    k_printf("Test 4: Pointer Address: %p\n", boot_info);
 
     // 7. Test 5: Mixed Formatting
-    kPrintf("Test 5: Mixed: %s is %d years old.\n", "Dev", 21); */
+    k_printf("Test 5: Mixed: %s is %d years old.\n", "Dev", 21); */
 
 
     /* 
@@ -582,17 +582,17 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
     ................................................................................................
     ................................................................................................
 
-    This version of kernel was meant to test the BasicRenderer methods that would facilitate printing
+    This version of kernel was meant to test the basic_renderer_t methods that would facilitate printing
     of strings on the screen using the psf1 font.
 
     ................................................................................................
     ................................................................................................
     
-    BasicRenderer_Init(&frameBuffer, font, 0xff000000, 0xFFFF8000);
+    font_renderer_init(&frame_buffer, font, 0xff000000, 0xFFFF8000);
     
-    BasicRenderer_ClearScreen();
-    BasicRenderer_Print("Print is working\n");
-    BasicRenderer_Print("Font renderer is working!"); */
+    font_renderer_clear_screen();
+    font_renderer_print("Print is working\n");
+    font_renderer_print("Font renderer is working!"); */
 
     /*
 
@@ -600,17 +600,17 @@ void kernelStart(BOOT_INFO* bootInfo_recieved){
     ................................................................................................
 
     This version of kernel was meant to change the color of entire screen by directly manipulating
-    the frameBuffer data by iterating from frameBufferBase to framebuffer size.
+    the frame_buffer data by iterating from frame_buffer_base to framebuffer size.
 
     ................................................................................................
     ................................................................................................
     
-     unsigned int* frameBufferBase = (unsigned int*)bootInfo->frameBuffer.frameBufferBase;
-    unsigned int frameBufferSize = bootInfo->frameBuffer.frameBufferSize;
+     unsigned int* frame_buffer_base = (unsigned int*)boot_info->frame_buffer.frame_buffer_base;
+    unsigned int frame_buffer_size = boot_info->frame_buffer.frame_buffer_size;
 
     unsigned int color = 0xFF0000FF;
 
-    for(unsigned int i = 0; i < frameBufferSize / 4; i++){
-        frameBufferBase[i] = color;
+    for(unsigned int i = 0; i < frame_buffer_size / 4; i++){
+        frame_buffer_base[i] = color;
     }
  */

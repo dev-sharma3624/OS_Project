@@ -1,6 +1,6 @@
 #pragma once
 
-char scanCodeLookupTable[] = {
+char scan_code_for_lookup_table[] = {
     0,  0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 0, // 0x00 - 0x0E
     0, 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', 0,    // 0x0F - 0x1C
     0, 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',       // 0x1D - 0x29

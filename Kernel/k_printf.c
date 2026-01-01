@@ -1,7 +1,7 @@
-#include "kprintf.h"
-#include "BasicRenderer.h"
+#include "k_printf.h"
+#include "font_renderer.h"
 
-void kReverse(char* s){
+void k_printf_reverse_string(char* s){
     char temp;
 
     int len = 0;
@@ -16,14 +16,14 @@ void kReverse(char* s){
     }
 }
 
-void convertIntToAscii(int n, char s[]){
+void k_printf_convert_int_to_ascii(int n, char s[]){
     int i = 0, sign = n;
 
     // checking for overflow number since for a int max positive number is +2147483647 which is 1 less than the number we're checking for
     // logic requires to convert a negative number to positive and then add a negative sign ahead for number -> text tranformation
     // direct converting -2147483648 to positive will cause overflow because an integer variable can only store value upto +2147483647
     if(n == -2147483648){
-        convertIntToAscii(n + 1, s);
+        k_printf_convert_int_to_ascii(n + 1, s);
 
         int len = 0;
         while(s[len] != '\0') len++;
@@ -58,30 +58,30 @@ void convertIntToAscii(int n, char s[]){
 
     s[i] = '\0'; // null terminator
 
-    kReverse(s);
+    k_printf_reverse_string(s);
     
 }
 
-void convertHexToAscii(unsigned long n, char s[]){
+void k_printf_convert_hex_to_ascii(unsigned long n, char s[]){
     int i = 0;
     unsigned long m = n;
-    char hexDigits[] = "0123456789ABCDEF";
+    char hex_digits[] = "0123456789ABCDEF";
 
     do{
         /*
         for e.g:
         n = 106, n % 16 = 10
-        hexDigits[10] = A
+        hex_digits[10] = A
 
         number remains = 106/16 => 6
 
         n % 16 = 6
-        hexDigits[6] = 6
+        hex_digits[6] = 6
 
         final string before reverse = A6x0
         after reverse = 0x6A (decimal equivalent = 106)
         */
-        s[i++] = hexDigits[ m % 16];
+        s[i++] = hex_digits[ m % 16];
 
         m /= 16;
     }while(m > 0);
@@ -90,10 +90,10 @@ void convertHexToAscii(unsigned long n, char s[]){
     s[i++] = '0';
     s[i] = '\0';
 
-    kReverse(s);
+    k_printf_reverse_string(s);
 }
 
-void kPrintf(const char* fmt, ...){
+void k_printf(const char* fmt, ...){
     va_list args; // holds the state of the argument traversal
     va_start(args, fmt); // initializes va_list, offset pointer to the exact next address after the last know arg which in this case is fmt
 
@@ -102,43 +102,43 @@ void kPrintf(const char* fmt, ...){
     for(const char* p = fmt; *p != '\0'; p++){
         
         if(*p != '%'){ // if not format specifier then simply print the character
-            BasicRenderer_PutChar(*p);
+            font_renderer_put_char(*p);
             continue;
         }
 
         switch (*++p)
         {
         case 'c':
-            BasicRenderer_PutChar(va_arg(args, int));
+            font_renderer_put_char(va_arg(args, int));
             break;
 
         case 's':
-            BasicRenderer_Print(va_arg(args, char*));
+            font_renderer_print(va_arg(args, char*));
             break;
 
         case 'd':
         case 'i':
-            convertIntToAscii(va_arg(args, int), temp);
-            BasicRenderer_Print(temp);
+            k_printf_convert_int_to_ascii(va_arg(args, int), temp);
+            font_renderer_print(temp);
             break;
 
         case 'x':
-            convertHexToAscii(va_arg(args, unsigned int), temp);
-            BasicRenderer_Print(temp);
+            k_printf_convert_hex_to_ascii(va_arg(args, unsigned int), temp);
+            font_renderer_print(temp);
             break;
 
         case 'p':
-            convertHexToAscii(va_arg(args, unsigned long), temp);
-            BasicRenderer_Print(temp);
+            k_printf_convert_hex_to_ascii(va_arg(args, unsigned long), temp);
+            font_renderer_print(temp);
             break;
 
         case '%':
-            BasicRenderer_PutChar('%');
+            font_renderer_put_char('%');
             break;
         
         default:
-            BasicRenderer_PutChar('%');
-            BasicRenderer_PutChar(*p);
+            font_renderer_put_char('%');
+            font_renderer_put_char(*p);
             break;
         }
     }
