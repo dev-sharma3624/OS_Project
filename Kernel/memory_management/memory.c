@@ -48,3 +48,12 @@ uint64_t memory_find_suitable_m_segment(boot_info_t* boot_info, uint64_t mininmu
 
     }
 }
+
+void memset(void* start_address, uint64_t value, size_t limit){
+
+    uint64_t* start_address_uint64_pointer = (uint64_t*) start_address;
+
+    for(uint64_t i = 0; i < limit; i++){
+        start_address_uint64_pointer[i] = value;
+    }
+}
