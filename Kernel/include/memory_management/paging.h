@@ -35,6 +35,6 @@ typedef struct {
     paging_map_entry_t entries[512];
 } __attribute__((aligned(4096))) paging_page_table_t;
 
-void paging_map_page(paging_page_table_t* pml4, void* virtual_addr, void* physical_addr, uint64_t flags);
+void paging_map_page(paging_page_table_t* pml4, void* virtual_addr, uint64_t physical_addr, uint64_t flags);
 void paging_init(void* frame_buffer_addr, uint64_t frame_buffer_size, uint64_t total_ram_size);
 

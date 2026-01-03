@@ -32,7 +32,7 @@ paging_page_table_t* get_table_ptr(paging_map_entry_t* entry){
     return (paging_page_table_t*) entry_address;
 }
 
-void paging_map_page(paging_page_table_t* pml4, void* virtual_addr_ptr, void* physical_addr, uint64_t flags){
+void paging_map_page(paging_page_table_t* pml4, void* virtual_addr_ptr, uint64_t physical_addr, uint64_t flags){
 
     uint64_t virtual_address_value = (uint64_t) virtual_addr_ptr;
 
@@ -59,7 +59,7 @@ void paging_map_page(paging_page_table_t* pml4, void* virtual_addr_ptr, void* ph
     paging_page_table_t* pt = get_table_ptr(&(pd->entries[level_2_index]));
     uint64_t level_1_index = L1_IDX(virtual_address_value);
 
-    pt->entries[level_1_index].address = (uint64_t) physical_addr >> 12;
+    pt->entries[level_1_index].address = physical_addr >> 12;
 
     pt->entries[level_1_index].present = (flags & PT_FLAG_PRESENT) ? 1 : 0;
     pt->entries[level_1_index].read_write = (flags & PT_FLAG_READ_WRITE) ? 1 : 0;
@@ -92,7 +92,7 @@ void paging_init(void* frame_buffer_addr, uint64_t frame_buffer_size, uint64_t t
         paging_map_page(
             kernel_pml4,
             (void*) addr,
-            (void*) addr,
+            addr,
             PT_FLAG_PRESENT | PT_FLAG_READ_WRITE
         );
     }
