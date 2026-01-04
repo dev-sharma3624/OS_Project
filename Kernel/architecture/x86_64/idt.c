@@ -45,6 +45,7 @@ void idt_init(){
     idtr.offset = (unsigned long long)&main_idt;
 
     idt_set_gate(33, keyboard_driver_handler, INTERRUPT_GATE);
+    idt_set_gate(14, page_fault_handler, INTERRUPT_GATE);
 
     _LoadIdt(&idtr);
 }
