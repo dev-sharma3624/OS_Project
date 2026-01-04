@@ -10,6 +10,7 @@
 #include <typedefs.h>
 #include <memory_management/pmm.h>
 #include <memory_management/paging.h>
+#include <memory_management/heap.h>
 
 #define MAX_COMMAND_BUFFER 256
 char command_buffer[MAX_COMMAND_BUFFER];
@@ -149,6 +150,32 @@ void kernel_start(boot_info_t* boot_info_recieved){
     );
     k_printf("VMM Initialized!\n");
 
+    k_printf("--- HEAP TEST START ---\n");
+
+    void* heap_start = pmm_request_page();
+    for(int i = 0; i < 9; i++) pmm_request_page();
+
+    heap_init(heap_start, 4096 * 10);
+    k_printf("Heap Start: %x\n", (uint64_t)heap_start);
+
+    void* ptr_a = heap_kmalloc(10);
+    void* ptr_b = heap_kmalloc(20);
+
+    k_printf("Ptr A: %x\n", (uint64_t)ptr_a);
+    k_printf("Ptr B: %x\n", (uint64_t)ptr_b);
+
+    k_printf("Freeing Ptr A...\n");
+    heap_kfree(ptr_a);
+
+    void* ptr_c = heap_kmalloc(5);
+    k_printf("Ptr C: %x\n", (uint64_t)ptr_c);
+
+    if (ptr_c == ptr_a) {
+        k_printf("SUCCESS: Heap reused the freed memory!\n");
+    } else {
+        k_printf("FAIL: Heap created a new block instead of reusing.\n");
+    }
+
     __asm__ volatile ("sti"); 
 
     k_printf("Input enabled.\n\n");
@@ -200,6 +227,129 @@ void kernel_start(boot_info_t* boot_info_recieved){
 
     }
 }
+
+    /* 
+
+    ................................................................................................
+    ................................................................................................
+
+    Here, we successfully implemented a virtual memory manager, initialized it and loaded the pml4
+    table to cr3 register.
+
+    ................................................................................................
+    ................................................................................................ 
+
+
+    font_renderer_init(&boot_info.frame_buffer, boot_info.font, 0xff000000, 0xFFFF8000);
+
+    font_renderer_clear_screen();
+
+    k_printf("Kernel initialized.\n");
+    k_printf("Loading GDT...\n");
+
+    gdt_init();
+
+    k_printf("GDT loaded successfully\n");
+
+    k_printf("Loading IDT...\n");
+
+    idt_init();
+    k_printf("IDT loaded successfully\n");
+
+    k_printf("Remapping PIC...\n");
+    remap_pic();
+    k_printf("PIC remapping successfull\n");
+
+    uint64_t m_map_size = memory_get_m_size(&boot_info);
+
+    k_printf("Total memory: %p bytes\n", m_map_size);
+    k_printf("Total memory: %d MB\n", (int) m_map_size / 1024 / 1024);
+
+    pmm_init(&boot_info);
+    k_printf("Page Frame Allocator Initialized!\n");
+
+    void* page1 = pmm_request_page();
+    k_printf("Page 1 request: %p\n", (uint64_t)page1);
+
+    void* page2 = pmm_request_page();
+    k_printf("Page 2 request: %p\n", (uint64_t)page2);
+
+    void* page3 = pmm_request_page();
+    k_printf("Page 3 Request: %p\n", (uint64_t)page3);
+
+    void* page4= pmm_request_page();
+    k_printf("Page 4 Request: %p\n", (uint64_t)page4);
+    
+    k_printf("Freeing Page 1...\n");
+    pmm_free_page(page1);
+
+    void* page5 = pmm_request_page();
+    k_printf("Page 5 Request: %p\n", (uint64_t)page5);
+
+
+    if (page5 == page1) {
+        k_printf("TEST PASSED: Memory Recycled!\n");
+    } else {
+        k_printf("TEST FAILED: Allocator ignored the free page.\n");
+    }
+
+    paging_init(
+        boot_info.frame_buffer.frame_buffer_base, 
+        boot_info.frame_buffer.frame_buffer_size,
+        m_map_size
+    );
+    k_printf("VMM Initialized!\n");
+
+    __asm__ volatile ("sti"); 
+
+    k_printf("Input enabled.\n\n");
+
+    k_printf("Project D v0.1. Type 'help'.\nProject D> ");
+    
+    while (1)
+    {
+        unsigned char scan_code = read_key();
+        if(scan_code != 0){
+
+            if(scan_code & 0x80){
+                continue;
+            }
+            
+            if(scan_code == 0x0E){
+
+                if(buffer_position > 0){
+
+                    buffer_position--;
+                    command_buffer[buffer_position] = 0;
+
+
+                    k_printf("\b");
+                }
+            }
+
+            else if (scan_code == 0x1C){
+                kernel_execute_command();
+            }
+
+            if(scan_code < 0x3A){
+                char ascii = scan_code_for_lookup_table[scan_code];
+
+                if(ascii != 0){
+
+                    if(buffer_position < MAX_COMMAND_BUFFER - 1){
+
+                        k_printf("%c", ascii);
+                        command_buffer[buffer_position] = ascii;
+                        buffer_position++;
+
+                    }
+                }
+            }
+        }
+
+        __asm__ volatile ("hlt");
+
+    }*/
 
 
     /* 
