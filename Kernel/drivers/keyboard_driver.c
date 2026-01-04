@@ -1,6 +1,6 @@
 #include <drivers/keyboard_driver.h>
 #include <architecture/x86_64/io.h>
-#include <architecture/x86_64/interrupt_frame.h>
+#include <architecture/x86_64/interrupt_handlers.h>
 
 #define KEYBOARD_DATA_PORT 0x60
 #define BUFFER_SIZE 256
