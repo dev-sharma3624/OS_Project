@@ -5,7 +5,6 @@
 
 #define PIT_CMD_PORT 0x43
 #define PIT_CH0_PORT 0x40
-#define PIC_EOI_PORT 0x20
 
 static volatile uint64_t ticks = 0;
 
@@ -28,7 +27,6 @@ void timer_sleep(uint64_t time_in_ms){
     }
 }
 
-__attribute__((interrupt)) void timer_handler(interrupt_frame_t* frame) {
+void timer_handler() {
     ticks++;
-    io_out_b(PIC_EOI_PORT, 0x20);
 }

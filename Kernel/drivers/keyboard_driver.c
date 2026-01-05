@@ -9,7 +9,7 @@ unsigned char keyboard_buffer[BUFFER_SIZE];
 volatile int write_index = 0;
 volatile int read_index = 0;
 
-__attribute__((interrupt)) void keyboard_driver_handler(interrupt_frame_t* frame){
+void keyboard_driver_handler(){
 
     unsigned char scan_code = io_in_b(KEYBOARD_DATA_PORT);
 
@@ -19,8 +19,6 @@ __attribute__((interrupt)) void keyboard_driver_handler(interrupt_frame_t* frame
         keyboard_buffer[write_index] = scan_code;
         write_index = next_write_index;
     }
-
-    io_out_b(0x20, 0x20);
 
 }
 

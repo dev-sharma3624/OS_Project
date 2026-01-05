@@ -6,6 +6,8 @@
 #define PIC2_COMMAND 0xA0
 #define PIC2_DATA 0xA1
 
+#define PIC_EOI 0x20
+
 #define ICW1_INIT 0x11
 #define ICW4_8086 0x01
 
@@ -38,4 +40,13 @@ void remap_pic(){
     io_wait();
     io_out_b(PIC2_DATA, 0xFF);
 
+}
+
+void pic_send_eoi(unsigned char irq){
+
+    if( irq >= 8){
+        io_out_b(PIC2_COMMAND, PIC_EOI);
+    }
+
+    io_out_b(PIC1_COMMAND, PIC_EOI);
 }
