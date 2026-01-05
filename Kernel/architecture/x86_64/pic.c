@@ -34,7 +34,7 @@ void remap_pic(){
     io_out_b(PIC2_DATA, ICW4_8086);
     io_wait();
 
-    io_out_b(PIC1_DATA, 0xFD);
+    io_out_b(PIC1_DATA, 0xFC);
     io_wait();
     io_out_b(PIC2_DATA, 0xFF);
 

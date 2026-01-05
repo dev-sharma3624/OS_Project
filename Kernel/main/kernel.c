@@ -11,6 +11,7 @@
 #include <memory_management/pmm.h>
 #include <memory_management/paging.h>
 #include <memory_management/heap.h>
+#include <drivers/timer.h>
 
 #define MAX_COMMAND_BUFFER 256
 char command_buffer[MAX_COMMAND_BUFFER];
@@ -176,10 +177,17 @@ void kernel_start(boot_info_t* boot_info_recieved){
         k_printf("FAIL: Heap created a new block instead of reusing.\n");
     }
 
-    __asm__ volatile ("sti"); 
+    __asm__ volatile ("sti");
 
+    timer_init(1000);
+
+    timer_sleep(2000);
+    font_renderer_clear_screen();
+
+    timer_sleep(500);
     k_printf("Input enabled.\n\n");
 
+    timer_sleep(500);
     k_printf("Project D v0.1. Type 'help'.\nProject D> ");
     
     while (1)
