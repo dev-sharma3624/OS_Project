@@ -65,6 +65,8 @@ void isr_handler(trap_frame_t* trap_frame){
     // hardware interrupts
     if(trap_frame->interrupt_no >= 32 && trap_frame->interrupt_no <= 47){
 
+        pic_send_eoi(trap_frame->interrupt_no - 32);
+
         switch (trap_frame->interrupt_no) {
 
             case 32:
@@ -78,8 +80,6 @@ void isr_handler(trap_frame_t* trap_frame){
             default:
                 break;
         }
-
-        pic_send_eoi(trap_frame->interrupt_no - 32);
 
     }
 

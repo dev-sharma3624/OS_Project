@@ -7,6 +7,7 @@ extern isr_handler
 ; Export the symbol so C can access the ISR table (if you generate it here)
 ; or just export individual ISRs.
 global isr_common_stub
+global interrupt_return
 
 ; =============================================================================
 ; MACROS: Context Saving & Restoring
@@ -119,6 +120,14 @@ ISR_ERR    13   ; General protection fault
 ISR_ERR    14   ; Page Fault
 ISR_NO_ERR 32   ; IRQ0 (Timer) - This is the big one for scheduling!
 ISR_NO_ERR 33   ; IRQ1 (Keyboard)
+
+interrupt_return:
+    ; This function is where a NEW task "wakes up" for the first time.
+    ; The stack currently has a TrapFrame on it.
+    
+    RESTORE_CONTEXT ; Pop R15...RAX
+    add rsp, 16     ; Pop Error Code and Int No
+    iretq           ; Pop CS, RIP, RFLAGS, SS, RSP -> Start the task!
 
 ; Tell the linker we don't need an executable stack
 section .note.GNU-stack noalloc noexec nowrite progbits

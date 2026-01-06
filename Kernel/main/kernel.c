@@ -12,6 +12,7 @@
 #include <memory_management/paging.h>
 #include <memory_management/heap.h>
 #include <drivers/timer.h>
+#include <cpu_scheduling/process.h>
 
 #define MAX_COMMAND_BUFFER 256
 char command_buffer[MAX_COMMAND_BUFFER];
@@ -83,6 +84,20 @@ void kernel_execute_command(){
     kernel_clear_buffer();
     k_printf("Project D> ");
     
+}
+
+void task_A() {
+    while(1) {
+        k_printf("A"); // Replace with your print function
+        for(volatile int i = 0; i < 10000000; i++);
+    }
+}
+
+void task_B() {
+    while(1) {
+        k_printf("B");
+        for(volatile int i = 0; i < 10000000; i++);
+    }
 }
 
 void kernel_start(boot_info_t* boot_info_recieved){
@@ -177,12 +192,28 @@ void kernel_start(boot_info_t* boot_info_recieved){
         k_printf("FAIL: Heap created a new block instead of reusing.\n");
     }
 
-    __asm__ volatile ("sti");
+    k_printf("Address of task_A: %x\n", (uint64_t)task_A);
+    k_printf("Address of task_B: %x\n", (uint64_t)task_B);
 
     timer_init(1000);
 
-    timer_sleep(2000);
+    __asm__ volatile ("sti");
+
+    timer_sleep(5000);
     font_renderer_clear_screen();
+
+    multitask_init(); // Initialize kernel_task
+
+    create_task(task_A);
+    create_task(task_B);
+
+    k_printf("Starting Multitasking...\n");
+
+    // The Kernel Task loop
+    while(1) {
+        k_printf("K");
+        for(volatile int i = 0; i < 10000000; i++);
+    }
 
     timer_sleep(500);
     k_printf("Input enabled.\n\n");

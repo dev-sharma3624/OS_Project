@@ -2,6 +2,7 @@
 #include <architecture/x86_64/interrupt_handlers.h>
 #include <architecture/x86_64/io.h>
 #include <drivers/timer.h>
+#include <cpu_scheduling/scheduler.h>
 
 #define PIT_CMD_PORT 0x43
 #define PIT_CH0_PORT 0x40
@@ -29,4 +30,8 @@ void timer_sleep(uint64_t time_in_ms){
 
 void timer_handler() {
     ticks++;
+
+    if(ticks % 100 == 0){
+        schedule();
+    }
 }
