@@ -114,6 +114,8 @@ isr_common_stub:
 ; Define your specific ISRs here. 
 ; You will put these addresses into your IDT in C code.
 
+ISR_NO_ERR 6   ; Invalid Opcode Exception
+ISR_ERR    13   ; General protection fault
 ISR_ERR    14   ; Page Fault
 ISR_NO_ERR 32   ; IRQ0 (Timer) - This is the big one for scheduling!
 ISR_NO_ERR 33   ; IRQ1 (Keyboard)

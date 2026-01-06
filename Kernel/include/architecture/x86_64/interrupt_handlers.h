@@ -13,3 +13,4 @@
 void keyboard_driver_handler();
 void page_fault_handler(trap_frame_t* frame);
 void timer_handler();
+void gpf_handler(trap_frame_t* frame);
