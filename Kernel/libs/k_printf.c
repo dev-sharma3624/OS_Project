@@ -1,5 +1,8 @@
 #include <libs/k_printf.h>
 #include <drivers/font_renderer.h>
+#include <cpu_scheduling/spinlock.h>
+
+spinlock_t fb_lock = {0};
 
 void k_printf_reverse_string(char* s){
     char temp;
@@ -94,6 +97,9 @@ void k_printf_convert_hex_to_ascii(unsigned long n, char s[]){
 }
 
 void k_printf(const char* fmt, ...){
+
+    spinlock_acquire(&fb_lock);
+
     va_list args; // holds the state of the argument traversal
     va_start(args, fmt); // initializes va_list, offset pointer to the exact next address after the last know arg which in this case is fmt
 
@@ -143,4 +149,6 @@ void k_printf(const char* fmt, ...){
         }
     }
     va_end(args);
+
+    spinlock_release(&fb_lock);
 }
