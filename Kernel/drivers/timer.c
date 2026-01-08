@@ -7,7 +7,7 @@
 #define PIT_CMD_PORT 0x43
 #define PIT_CH0_PORT 0x40
 
-static volatile uint64_t ticks = 0;
+volatile uint64_t ticks = 0;
 
 void timer_init(uint32_t freq){
 
@@ -20,17 +20,9 @@ void timer_init(uint32_t freq){
 
 }
 
-void timer_sleep(uint64_t time_in_ms){
-    uint64_t end_ticks = ticks + time_in_ms;
-    
-    while(ticks < end_ticks) {
-        asm volatile("hlt");
-    }
-}
-
 void timer_handler() {
     ticks++;
-
+    task_check_wakeup();
     if(ticks % 100 == 0){
         schedule();
     }

@@ -17,6 +17,7 @@ typedef struct tcb_t {
 
     uint64_t pid; // process id
     task_state_t task_state; // current state
+    uint64_t wakeup_time;
 
     char name[16]; // task name (for debugging)
 

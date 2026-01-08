@@ -13,6 +13,7 @@
 #include <memory_management/heap.h>
 #include <drivers/timer.h>
 #include <cpu_scheduling/process.h>
+#include <cpu_scheduling/scheduler.h>
 
 #define MAX_COMMAND_BUFFER 256
 char command_buffer[MAX_COMMAND_BUFFER];
@@ -88,15 +89,15 @@ void kernel_execute_command(){
 
 void task_A() {
     while(1) {
-        k_printf("A"); // Replace with your print function
-        for(volatile int i = 0; i < 10000000; i++);
+        k_printf(" [A] ");
+        task_sleep(1000);
     }
 }
 
 void task_B() {
     while(1) {
-        k_printf("B");
-        for(volatile int i = 0; i < 10000000; i++);
+        k_printf(" [B] ");
+        task_sleep(500);
     }
 }
 
@@ -199,7 +200,7 @@ void kernel_start(boot_info_t* boot_info_recieved){
 
     __asm__ volatile ("sti");
 
-    timer_sleep(5000);
+    task_sleep(5000);
     font_renderer_clear_screen();
 
     multitask_init(); // Initialize kernel_task
@@ -211,14 +212,16 @@ void kernel_start(boot_info_t* boot_info_recieved){
 
     // The Kernel Task loop
     while(1) {
-        k_printf("K");
+        k_printf(".");
         for(volatile int i = 0; i < 10000000; i++);
+        for(volatile int j = 0; j < 10000000; j++);
+        for(volatile int k = 0; k < 10000000; k++);
     }
 
-    timer_sleep(500);
+    task_sleep(500);
     k_printf("Input enabled.\n\n");
 
-    timer_sleep(500);
+    task_sleep(500);
     k_printf("Project D v0.1. Type 'help'.\nProject D> ");
     
     while (1)
