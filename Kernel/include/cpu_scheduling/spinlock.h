@@ -1,6 +1,7 @@
 #pragma once
 #include <typedefs.h>
 #include <architecture/x86_64/spinlock_atomic_instr.h>
+#include <cpu_scheduling/push_pop_cli.h>
 
 typedef struct {
     volatile uint64_t locked;
@@ -12,6 +13,8 @@ static inline void spinlock_init(spinlock_t* lock) {
 
 
 static inline __attribute__((always_inline)) void spinlock_acquire(spinlock_t* lock) {
+
+    push_cli();
 
     while (1) {
 
@@ -27,4 +30,5 @@ static inline __attribute__((always_inline)) void spinlock_acquire(spinlock_t* l
 
 static inline __attribute__((always_inline)) void spinlock_release(spinlock_t* lock) {
     atomic_xchg(&lock->locked, 0);
+    pop_cli();
 }
