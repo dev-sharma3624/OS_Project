@@ -205,18 +205,18 @@ void kernel_start(boot_info_t* boot_info_recieved){
 
     multitask_init(); // Initialize kernel_task
 
-    create_task(task_A);
-    create_task(task_B);
+    // create_task(task_A);
+    // create_task(task_B);
 
     k_printf("Starting Multitasking...\n");
 
     // The Kernel Task loop
-    while(1) {
-        k_printf(".");
-        for(volatile int i = 0; i < 10000000; i++);
-        for(volatile int j = 0; j < 10000000; j++);
-        for(volatile int k = 0; k < 10000000; k++);
-    }
+    // while(1) {
+    //     k_printf(".");
+    //     for(volatile int i = 0; i < 10000000; i++);
+    //     for(volatile int j = 0; j < 10000000; j++);
+    //     for(volatile int k = 0; k < 10000000; k++);
+    // }
 
     task_sleep(500);
     k_printf("Input enabled.\n\n");
@@ -226,7 +226,7 @@ void kernel_start(boot_info_t* boot_info_recieved){
     
     while (1)
     {
-        unsigned char scan_code = read_key();
+        uint8_t scan_code = read_key();
         if(scan_code != 0){
 
             if(scan_code & 0x80){
@@ -240,13 +240,13 @@ void kernel_start(boot_info_t* boot_info_recieved){
                     buffer_position--;
                     command_buffer[buffer_position] = 0;
 
-
                     k_printf("\b");
                 }
             }
 
-            else if (scan_code == 0x1C){
+            if (scan_code == 0x1C){
                 kernel_execute_command();
+                continue;
             }
 
             if(scan_code < 0x3A){
