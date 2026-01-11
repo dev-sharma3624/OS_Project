@@ -14,6 +14,8 @@
 #include <drivers/timer.h>
 #include <cpu_scheduling/process.h>
 #include <cpu_scheduling/scheduler.h>
+#include <architecture/x86_64/io.h>
+#include <memory_management/m_desc.h>
 
 #define MAX_COMMAND_BUFFER 256
 char command_buffer[MAX_COMMAND_BUFFER];
@@ -89,8 +91,9 @@ void kernel_execute_command(){
 
 void task_A() {
     while(1) {
-        k_printf(" [A] ");
-        task_sleep(1000);
+        for(volatile int i = 0; i < 10000000; i++);
+        for(volatile int j = 0; j < 10000000; j++);
+        for(volatile int k = 0; k < 10000000; k++);
     }
 }
 
@@ -104,6 +107,165 @@ void task_B() {
 void kernel_start(boot_info_t* boot_info_recieved){
 
     if(!boot_info_recieved) return;
+
+    // Initialize serial port logging
+    io_init();
+    io_print("\n[KERNEL] Higher Half Kernel Started!\n");
+
+    boot_info_recieved->font->header = P2V(boot_info_recieved->font->header);
+    boot_info_recieved->font->glyph_buffer = P2V(boot_info_recieved->font->glyph_buffer);
+
+    //copy boot_info data to a global variable
+    boot_info.m_map = (memory_descriptor_t*)P2V(boot_info_recieved->m_map);
+    boot_info.m_map_desc_size = boot_info_recieved->m_map_desc_size;
+    boot_info.m_map_size = boot_info_recieved->m_map_size;
+    boot_info.font = (void*)P2V(boot_info_recieved->font);
+    boot_info.frame_buffer = boot_info_recieved->frame_buffer;
+    
+    io_print("[KERNEL] Memory Map & Font Pointers Sanitized.\n");
+
+    gdt_init();
+    idt_init();
+    remap_pic();
+    timer_init(1000);
+    font_renderer_clear_screen();
+
+    __asm__ volatile ("sti");
+
+    pmm_init(&boot_info);
+    void* page1 = pmm_request_page();
+    void* page2 = pmm_request_page();
+    void* page3 = pmm_request_page();
+    void* page4= pmm_request_page();
+    pmm_free_page(page1);
+    void* page5 = pmm_request_page();
+
+    io_print("[KERNEL] GDT, IDT, PIC, PIT, PMM successfully\n");
+
+    if(page1 == page5){
+        io_print("PMM RECYCLE\n");
+    }
+
+    uint64_t m_map_size = memory_get_m_size(&boot_info);
+
+    paging_init(
+        boot_info.frame_buffer.frame_buffer_base, 
+        boot_info.frame_buffer.frame_buffer_size,
+        m_map_size
+    );
+
+    io_print("before conversion: ");
+    print_address_hex(boot_info.frame_buffer.frame_buffer_base);
+
+    boot_info.frame_buffer.frame_buffer_base = (void*)FRAMEBUFFER_VIRT_ADDR;
+
+    io_print("after conversion: ");
+    print_address_hex(boot_info.frame_buffer.frame_buffer_base);
+
+    font_renderer_init(&boot_info.frame_buffer, boot_info.font, 0xff000000, 0xFFFF8000);
+
+    font_renderer_clear_screen();
+
+    k_printf("Kernel initialized.\n");
+
+    k_printf("--- HEAP TEST START ---\n");
+
+    void* heap_start = pmm_request_page();
+    for(int i = 0; i < 9; i++) pmm_request_page();
+
+    heap_init(P2V(heap_start), 4096 * 10);
+    k_printf("Heap Start: %x\n", (uint64_t)heap_start);
+
+    void* ptr_a = heap_kmalloc(10);
+    void* ptr_b = heap_kmalloc(20);
+
+    k_printf("Ptr A: %x\n", (uint64_t)ptr_a);
+    k_printf("Ptr B: %x\n", (uint64_t)ptr_b);
+
+    k_printf("Freeing Ptr A...\n");
+    heap_kfree(ptr_a);
+
+    void* ptr_c = heap_kmalloc(5);
+    k_printf("Ptr C: %x\n", (uint64_t)ptr_c);
+
+    if (ptr_c == ptr_a) {
+        k_printf("SUCCESS: Heap reused the freed memory!\n");
+    } else {
+        k_printf("FAIL: Heap created a new block instead of reusing.\n");
+    }
+
+    // asm volatile("ud2");
+
+    // 5. Done for now
+    io_print("[KERNEL] System Halted successfully.\n");
+
+    // task_sleep(5000);
+
+    multitask_init(); // Initialize kernel_task
+
+    create_task(task_A);
+    // create_task(task_B);
+
+    k_printf("Starting Multitasking...\n");
+
+    // The Kernel Task loop
+    /* while(1) {
+        k_printf(".");
+        for(volatile int i = 0; i < 10000000; i++);
+        for(volatile int j = 0; j < 10000000; j++);
+        for(volatile int k = 0; k < 10000000; k++);
+    } */
+
+    task_sleep(5000);
+    k_printf("Input enabled.\n\n");
+
+    task_sleep(5000);
+    k_printf("Project D v0.1. Type 'help'.\nProject D> ");
+    
+    while (1)
+    {
+        uint8_t scan_code = read_key();
+        if(scan_code != 0){
+
+            if(scan_code & 0x80){
+                continue;
+            }
+            
+            if(scan_code == 0x0E){
+
+                if(buffer_position > 0){
+
+                    buffer_position--;
+                    command_buffer[buffer_position] = 0;
+
+                    k_printf("\b");
+                }
+            }
+
+            if (scan_code == 0x1C){
+                kernel_execute_command();
+                continue;
+            }
+
+            if(scan_code < 0x3A){
+                char ascii = scan_code_for_lookup_table[scan_code];
+
+                if(ascii != 0){
+
+                    if(buffer_position < MAX_COMMAND_BUFFER - 1){
+
+                        k_printf("%c", ascii);
+                        command_buffer[buffer_position] = ascii;
+                        buffer_position++;
+
+                    }
+                }
+            }
+        }
+
+    }
+
+    /* if(!boot_info_recieved) return;
 
     boot_info = *boot_info_recieved;
 
@@ -267,7 +429,7 @@ void kernel_start(boot_info_t* boot_info_recieved){
 
         __asm__ volatile ("hlt");
 
-    }
+    } */
 }
 
     /* 

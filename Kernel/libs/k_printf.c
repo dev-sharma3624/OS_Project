@@ -1,6 +1,7 @@
 #include <libs/k_printf.h>
 #include <drivers/font_renderer.h>
 #include <cpu_scheduling/spinlock.h>
+#include <architecture/x86_64/io.h>
 
 spinlock_t fb_lock = {0};
 

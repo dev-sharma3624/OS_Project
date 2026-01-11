@@ -3,6 +3,7 @@
 #include <memory_management/memory.h>
 #include <memory_management/m_bitmap.h>
 #include <memory_management/m_desc.h>
+#include <architecture/x86_64/io.h>
 
 static memory_bitmap bitmap;
 extern uint64_t _KernelStart;
@@ -27,9 +28,15 @@ static void lock_page(void* address){
     }
 }
 
-static void lock_pages(void* address, uint64_t count){
+void lock_pages(void* address, uint64_t count){
     for(uint64_t i = 0; i < count; i++){
         void* addr = (void*)((uint64_t)address + (i * 4096));
+        if(i == 0 || i == count - 1){
+            uint64_t index = (uint64_t) addr / 4096;
+            io_print("Lock page index: ");
+            print_dec(index);
+            io_print("\n");
+        }
         lock_page(addr);
     }
 }
@@ -42,9 +49,15 @@ static void unlock_page(void* address){
     }
 }
 
-static void unlock_pages(void* address, uint64_t count){
+void unlock_pages(void* address, uint64_t count){
     for(uint64_t i = 0; i < count; i++){
         void* addr = (void*)((uint64_t)address + (i * 4096));
+        if(i == 0 || i == count - 1){
+            uint64_t index = (uint64_t) addr / 4096;
+            io_print("Unlock page index: ");
+            print_dec(index);
+            io_print("\n");
+        }
         unlock_page(addr);
     }
 }
@@ -58,6 +71,8 @@ void pmm_init(boot_info_t* boot_info){
     initialized = true;
 
     uint64_t memory_size = memory_get_m_size(boot_info);
+    io_print("Memory size\n");
+    print_dec(memory_size);
     uint64_t total_pages = memory_size / 4096;
     uint64_t bitmap_size = (total_pages / 8) + 1;
     uint64_t m_map_entries = boot_info->m_map_size / boot_info->m_map_desc_size;
@@ -66,30 +81,39 @@ void pmm_init(boot_info_t* boot_info){
     free_memory = 0;
     used_memory = 0;
 
-    void* bitmap_location = (void*)memory_find_suitable_m_segment(boot_info, bitmap_size);
+    void* bitmap_location = (void*)P2V(memory_find_suitable_m_segment(boot_info, bitmap_size));
+
+    if (bitmap_location == NULL) {
+        io_print("PANIC: No usable RAM found above Kernel Base! Increase VM Memory (-m 2G).\n");
+        while(1) asm("hlt");
+    }
 
     m_bitmap_init(&bitmap, bitmap_size, (uint8_t*)bitmap_location);
 
     for(uint64_t i = 0; i < m_map_entries; i++){
         memory_descriptor_t* desc = (memory_descriptor_t*)((uint64_t)boot_info->m_map + (i * boot_info->m_map_desc_size));
 
-        if(desc->type == 7){ 
+        if(desc->type == 7){
+            io_print("1\n");
             unlock_pages((void*)desc->physical_start, desc->number_of_pages);
         }
     }
 
     uint64_t pages_required_for_bitmap = (bitmap.size / 4096) + 1;
-    void* bitmap_start_address = (void*)bitmap.address;
+    void* bitmap_start_address = (void*)V2P(bitmap.address);
+    io_print("2\n");
     lock_pages(bitmap_start_address, pages_required_for_bitmap);
 
-    uint64_t kernel_start = (uint64_t)&_KernelStart;
-    uint64_t kernel_end = (uint64_t)&_KernelEnd;
+    uint64_t kernel_start = V2P((uint64_t)&_KernelStart);
+    uint64_t kernel_end = V2P((uint64_t)&_KernelEnd);
     uint64_t kernel_size = kernel_end - kernel_start;
     uint64_t pages_required_for_kernel = (kernel_size / 4096) + 1;
+    io_print("3\n");
     lock_pages((void*)kernel_start, pages_required_for_kernel);
 
-    lock_pages((void*)0, 256);
-
+    uint64_t pages_to_lock = KERNEL_PHSY_BASE / 4096;
+    io_print("4\n");
+    lock_pages((void*)0, pages_to_lock);
 }
 
 void* pmm_request_page(){

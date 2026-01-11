@@ -16,6 +16,8 @@ extern tcb_t* current_task;
 
 void keyboard_driver_handler(){
 
+    io_print("keyboard handler triggered\n");
+
     unsigned char scan_code = io_in_b(KEYBOARD_DATA_PORT); // read data from hardware port
 
     int next_write_index = (write_index + 1) % BUFFER_SIZE; // calculate next write index, goes to 0 if exceeds buffer size
@@ -29,19 +31,27 @@ void keyboard_driver_handler(){
     //condition true(keyboard_wait_task is NULL) => buffer is not empty, meaning there are currently keyboard presses that have not been processed but read into buffer
     //condition false(keyboard_wait_task is not NULL) => buffer is empty, in that case we put the current thread(shell thread) to BLOCKED state to allow background processes to execute
     if(keyboard_wait_task != NULL){ 
-        keyboard_wait_task->task_state = TASK_RUNNING; //start the current thread(shell thread) to start processing scancodes accumulated in buffer 
+        keyboard_wait_task->task_state = TASK_READY; //start the current thread(shell thread) to start processing scancodes accumulated in buffer 
         keyboard_wait_task = NULL; //so it can be set to not null again in future if the buffer becomes empty (no keyboard activity)
+
+        schedule();
     }
+
+    io_print("exit keyboard handler\n");
 
 }
 
 
 unsigned char read_key(){
 
+    io_print("read key invoked\n");
+
     // continuos loop to read data
     while(1) {
 
         if(read_index != write_index){// check to ensure, data is present
+
+            io_print("data present in buffer\n");
 
             unsigned char scan_code = keyboard_buffer[read_index]; //read the data from current read index
             read_index = (read_index + 1) % BUFFER_SIZE; // increment the read index, set to 0 if exceeds buffer size
@@ -58,4 +68,6 @@ unsigned char read_key(){
         schedule(); //pick up another READY state thread from queue until next keyboard interrupt fires
         
     }
+
+    io_print("outside while\n");
 }

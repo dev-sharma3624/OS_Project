@@ -4,6 +4,9 @@
 #include "Elf.h"
 #include "../boot_info.h"
 
+#define KERNEL_VIRT_BASE 0xFFFFFFFF80000000
+#define KERNEL_PHYS_BASE 0x8000000
+
 UINTN mapKey;
 
 
@@ -87,7 +90,7 @@ UINT64 LoadKernel(EFI_FILE_PROTOCOL* openFile, EFI_SYSTEM_TABLE* systemTable){
         if(phdr.p_type == 1){
 
             UINTN pagesNeeded = (phdr.p_memsz + 0xFFF) / 0x1000;
-            EFI_PHYSICAL_ADDRESS sgmtAdr = phdr.p_vaddr;
+            EFI_PHYSICAL_ADDRESS sgmtAdr = phdr.p_vaddr - KERNEL_VIRT_BASE + KERNEL_PHYS_BASE;
 
             status = systemTable->BootServices->AllocatePages(
                 AllocateAddress,
@@ -296,6 +299,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     
 
     typedef void (*KernelStartFunc)(boot_info_t*);
+    entryPoint = entryPoint - KERNEL_VIRT_BASE + KERNEL_PHYS_BASE;
     KernelStartFunc kernelStartFunc = (KernelStartFunc)entryPoint;
     
 

@@ -37,6 +37,8 @@ uint64_t memory_find_suitable_m_segment(boot_info_t* boot_info, uint64_t mininmu
 
         memory_descriptor_t* desc = (memory_descriptor_t*) ((uint64_t)boot_info->m_map + (i * boot_info->m_map_desc_size));
 
+        if (desc->physical_start < KERNEL_PHSY_BASE) continue;
+
         if(desc->type == 7){
 
             uint64_t segment_size = desc->number_of_pages * 4096;
@@ -47,13 +49,15 @@ uint64_t memory_find_suitable_m_segment(boot_info_t* boot_info, uint64_t mininmu
         }
 
     }
+
+    return NULL;
 }
 
 void memset(void* start_address, uint64_t value, size_t limit){
 
-    uint64_t* start_address_uint64_pointer = (uint64_t*) start_address;
+    uint8_t* start_address_uint8t_pointer = (uint8_t*) start_address;
 
     for(uint64_t i = 0; i < limit; i++){
-        start_address_uint64_pointer[i] = value;
+        start_address_uint8t_pointer[i] = value;
     }
 }

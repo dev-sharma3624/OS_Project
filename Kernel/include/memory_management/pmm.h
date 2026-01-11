@@ -14,3 +14,6 @@ void pmm_init(boot_info_t* boot_info);
 void* pmm_request_page();
 
 void pmm_free_page(void* address);
+
+void unlock_pages(void* address, uint64_t count);
+void lock_pages(void* address, uint64_t count);

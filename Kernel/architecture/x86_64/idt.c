@@ -3,6 +3,7 @@
 #include <architecture/x86_64/interrupt_handlers.h>
 #include <architecture/x86_64/trap_frame.h>
 #include <architecture/x86_64/pic.h>
+#include <architecture/x86_64/io.h>
 
 idt_desc_entry_t main_idt[256];
 
@@ -89,7 +90,9 @@ void isr_handler(trap_frame_t* trap_frame){
         switch (trap_frame->interrupt_no) {
 
             case 6:
-                k_printf("PANIC: Invalid Opcode at RIP: %x\n", trap_frame->rip);
+                io_print("higer jump address: ");
+                print_address_hex(trap_frame->rip);
+                // k_printf("PANIC: Invalid Opcode at RIP: %x\n", trap_frame->rip);
                 while(1);
                 break;
 
