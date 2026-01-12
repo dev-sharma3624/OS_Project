@@ -128,9 +128,8 @@ void kernel_start(boot_info_t* boot_info_recieved){
     idt_init();
     remap_pic();
     timer_init(1000);
-    font_renderer_clear_screen();
 
-    __asm__ volatile ("sti");
+    // __asm__ volatile ("sti");
 
     pmm_init(&boot_info);
     void* page1 = pmm_request_page();
@@ -157,7 +156,7 @@ void kernel_start(boot_info_t* boot_info_recieved){
     io_print("before conversion: ");
     print_address_hex(boot_info.frame_buffer.frame_buffer_base);
 
-    boot_info.frame_buffer.frame_buffer_base = (void*)FRAMEBUFFER_VIRT_ADDR;
+    boot_info.frame_buffer.frame_buffer_base = (void*)P2V(boot_info.frame_buffer.frame_buffer_base);
 
     io_print("after conversion: ");
     print_address_hex(boot_info.frame_buffer.frame_buffer_base);

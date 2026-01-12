@@ -148,12 +148,12 @@ void paging_init(void* frame_buffer_addr, uint64_t frame_buffer_size, uint64_t t
 
     io_print("after memset in paging init\n");
 
-    // uint64_t frame_buffer_end = (uint64_t) frame_buffer_addr + frame_buffer_size;
+    uint64_t frame_buffer_end = (uint64_t) frame_buffer_addr + frame_buffer_size;
     uint64_t memory_end = total_ram_size;
 
-    /* if(frame_buffer_end > memory_end){
+    if(frame_buffer_end > memory_end){
         memory_end = frame_buffer_end;
-    } */
+    }
 
     if(memory_end % 4096 != 0){
         memory_end = (memory_end & ~0xFFF) + 4096;
@@ -175,7 +175,7 @@ void paging_init(void* frame_buffer_addr, uint64_t frame_buffer_size, uint64_t t
         );
     }
 
-    uint64_t fb_phys_start = (uint64_t)frame_buffer_addr;
+    /* uint64_t fb_phys_start = (uint64_t)frame_buffer_addr;
     uint64_t fb_phys_end = fb_phys_start + frame_buffer_size;
 
     // Align End
@@ -192,7 +192,7 @@ void paging_init(void* frame_buffer_addr, uint64_t frame_buffer_size, uint64_t t
         // Map Explicit Virtual -> Explicit Physical
         paging_map_page(kernel_pml4, (void*)virt, phys, PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_CACHE_DISABLED); // Keep PCD bit!
     }
-
+ */
     load_cr3((void*) pml4_phsy);
 
     uint64_t target_addr = (uint64_t)&kernel_high_entry;

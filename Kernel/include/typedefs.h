@@ -21,6 +21,6 @@ typedef unsigned char bool;
 
 #define KERNEL_VIRT_BASE 0xFFFFFFFF80000000
 #define KERNEL_PHSY_BASE 0x8000000
-#define FRAMEBUFFER_VIRT_ADDR 0xFFFFFFFF40000000
+// #define FRAMEBUFFER_VIRT_ADDR 0xFFFFFFFF40000000
 #define P2V(a) ((uint64_t)(a) + KERNEL_VIRT_BASE -KERNEL_PHSY_BASE) //convert physical address to virtual
 #define V2P(a) ((uint64_t)(a) + KERNEL_PHSY_BASE - KERNEL_VIRT_BASE) //convert virtual address to physical
