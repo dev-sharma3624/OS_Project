@@ -16,8 +16,6 @@ extern tcb_t* current_task;
 
 void keyboard_driver_handler(){
 
-    io_print("keyboard handler triggered\n");
-
     unsigned char scan_code = io_in_b(KEYBOARD_DATA_PORT); // read data from hardware port
 
     int next_write_index = (write_index + 1) % BUFFER_SIZE; // calculate next write index, goes to 0 if exceeds buffer size
@@ -37,21 +35,15 @@ void keyboard_driver_handler(){
         schedule();
     }
 
-    io_print("exit keyboard handler\n");
-
 }
 
 
 unsigned char read_key(){
 
-    io_print("read key invoked\n");
-
     // continuos loop to read data
     while(1) {
 
         if(read_index != write_index){// check to ensure, data is present
-
-            io_print("data present in buffer\n");
 
             unsigned char scan_code = keyboard_buffer[read_index]; //read the data from current read index
             read_index = (read_index + 1) % BUFFER_SIZE; // increment the read index, set to 0 if exceeds buffer size
@@ -69,5 +61,4 @@ unsigned char read_key(){
         
     }
 
-    io_print("outside while\n");
 }

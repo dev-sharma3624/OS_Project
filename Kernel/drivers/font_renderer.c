@@ -1,5 +1,4 @@
 #include <drivers/font_renderer.h>
-#include <architecture/x86_64/io.h>
 
 basic_renderer_t global_renderer;
 
@@ -45,10 +44,6 @@ void font_renderer_backspace(){
 }
 
 void font_renderer_init(frame_buffer_t* frame_buffer, psf1_font_t* font, unsigned int color, unsigned int clear_color){
-    io_print("global renderer address\n");
-    print_address_hex((void*)(&global_renderer));
-    io_print("frame buffer base address passed from bootloader\n");
-    print_address_hex(frame_buffer->frame_buffer_base);
     global_renderer.frame_buffer = frame_buffer;
     global_renderer.font = font;
     global_renderer.color = color;
@@ -58,13 +53,8 @@ void font_renderer_init(frame_buffer_t* frame_buffer, psf1_font_t* font, unsigne
 }
 
 void font_renderer_clear_screen(){
-    // io_print("Inside clear screen\n");
     uint64 f_base = (uint64)global_renderer.frame_buffer->frame_buffer_base;
-    // io_print("value of f_base: ");
-    // print_address_hex((void*)f_base);
     uint64 bytes_per_scan_line = global_renderer.frame_buffer->pixel_per_scan_line * 4; // because each pixel is represent by 4 bytes
-    // io_print("value of bytes_per_scan_line: ");
-    // print_dec(bytes_per_scan_line);
     uint64 f_height = global_renderer.frame_buffer->screen_height;
 
     for(uint64 vertical_line = 0; vertical_line < f_height; vertical_line++){
@@ -92,9 +82,7 @@ void font_renderer_clear_screen(){
         0x0 (first), 0x04 (second), 0x08...., 0x24(last pixel)
         */
         while(current_pixel < end_of_line){
-            // io_print("before changing color\n");
             *current_pixel = global_renderer.clear_color;
-            // io_print("after changing color\n");
             current_pixel++;
         }
 
@@ -103,8 +91,6 @@ void font_renderer_clear_screen(){
     // setting the cursor position to the first pixel (top-right corner)
     global_renderer.cursor_position.x = 0;
     global_renderer.cursor_position.y = 0;
-
-    io_print("exiting clear screen\n");
 
 }
 

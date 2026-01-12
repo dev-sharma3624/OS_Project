@@ -1,6 +1,5 @@
 #include <typedefs.h>
 #include <memory_management/m_bitmap.h>
-#include <architecture/x86_64/io.h>
 
 void m_bitmap_init(memory_bitmap* memory_bitmap, uint64_t size, uint8_t* address){
     memory_bitmap->size = size;
@@ -41,8 +40,6 @@ uint64_t m_bitmap_get_first_free_memory_bit(memory_bitmap* memory_bitmap){
             bool is_bit_free = memory_bitmap->address[byte_index] & (bit_indexer >> bit_index);
 
             if(!is_bit_free){
-                io_print("returned page index\n");
-                print_dec((byte_index * 8) + bit_index);
                 return (byte_index * 8) + bit_index;
             }
 
