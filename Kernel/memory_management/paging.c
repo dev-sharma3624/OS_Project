@@ -160,12 +160,12 @@ void paging_init(void* frame_buffer_addr, uint64_t frame_buffer_size, uint64_t t
     }
 
     for(uint64_t addr = 0; addr < memory_end ; addr += 4096){
-        paging_map_page(
+        /* paging_map_page(
             kernel_pml4,
             (void*) addr,
             addr,
             PT_FLAG_PRESENT | PT_FLAG_READ_WRITE
-        );
+        ); */
 
         paging_map_page(
             kernel_pml4,
@@ -195,7 +195,10 @@ void paging_init(void* frame_buffer_addr, uint64_t frame_buffer_size, uint64_t t
  */
     load_cr3((void*) pml4_phsy);
 
-    uint64_t target_addr = (uint64_t)&kernel_high_entry;
+    unlock_pages((void*) 0, KERNEL_PHSY_BASE/4096);
+    lock_pages((void*)0, 256);
+
+    /* uint64_t target_addr = (uint64_t)&kernel_high_entry;
 
     // 2. Ensure it is a Higher Half address
     // If your linker script is already set to 0xFF..., target_addr might already be high.
@@ -210,6 +213,6 @@ void paging_init(void* frame_buffer_addr, uint64_t frame_buffer_size, uint64_t t
     io_print("Jumping to Higher Half...\n");
 
     // 4. The Leap
-    high_func();
+    high_func(); */
 
 }
