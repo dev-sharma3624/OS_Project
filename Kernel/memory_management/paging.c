@@ -12,6 +12,10 @@
 
 paging_page_table_t* kernel_pml4 = NULL;
 
+paging_page_table_t* get_kernel_page_table(){
+    return kernel_pml4;
+}
+
 void paging_set_new_page_table(paging_page_table_t* page_table, uint64_t index, uint64_t flags){
 
     void* new_page_table_addr = pmm_request_page(); //physical address to store new table
