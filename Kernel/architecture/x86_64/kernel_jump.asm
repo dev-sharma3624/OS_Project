@@ -1,6 +1,7 @@
 [bits 64]
 [extern kernel_start] ; Function name of the Kernel C function
 [global _start]     ; This makes the symbol visible to the Linker
+[global stack_top]
 
 ; Define constants
 %define PAGE_PRESENT    (1 << 0)
@@ -104,7 +105,7 @@ section .bss
     ; This is our "Land". We reserve 8KB (8192 bytes) of memory.
     align 16
     stack_bottom:
-        resb 8192 ; Reserve 8KB
+        resb 16384 ; Reserve 8KB
     stack_top:
 
 ; Tell the linker we don't need an executable stack

@@ -53,6 +53,59 @@ void kernel_print_memory_info() {
     k_printf("-------------------------\n");
 }
 
+// 1. The Target Function (This runs in Ring 3)
+void test_user_function() {
+    // WARNING: You cannot use 'printf' or any kernel function here!
+    // You are now in User Mode. Accessing kernel memory causes a GPF.
+    // We can only do simple math or an infinite loop for now.
+    
+    volatile int i = 0;
+    while(1) {
+        i++; 
+    }
+}
+
+// 2. The Switch Function
+void jump_to_user_mode() {
+    
+    // A. Define the Ring 3 Selectors based on your GDT
+    uint64_t user_cs = 0x23; // Index 4 | RPL 3
+    uint64_t user_ds = 0x2B; // Index 5 | RPL 3
+    uint64_t rflags  = 0x202; // Interrupts ENABLED (Bit 9) + Reserved (Bit 1)
+
+    // B. Setup a temporary stack for the user process
+    // (In a real OS, you'd malloc this. For now, a small static array works)
+    static uint8_t user_stack[4096];
+    uint64_t user_rsp = (uint64_t)user_stack + 4096;
+
+    // C. The Target Address
+    uint64_t entry_point = (uint64_t)&test_user_function;
+
+    // D. The "IRETQ" Frame Setup (Inline Assembly)
+    // We push the 5 values in this EXACT order:
+    // SS -> RSP -> RFLAGS -> CS -> RIP
+    asm volatile (
+        // FIX: Use %w0 to grab the lower 16-bits (Word) of the 64-bit register
+        "mov %w0, %%ax\n"  
+        "mov %%ax, %%ds\n"
+        "mov %%ax, %%es\n"
+        "mov %%ax, %%fs\n"
+        "mov %%ax, %%gs\n"
+        
+        // Stack Setup for IRETQ (Must be 64-bit pushes)
+        "pushq %0\n"       // 1. SS (We push the full 64-bit val, CPU uses low 16)
+        "pushq %1\n"       // 2. RSP
+        "pushq %2\n"       // 3. RFLAGS
+        "pushq %3\n"       // 4. CS
+        "pushq %4\n"       // 5. RIP
+        
+        "iretq\n"
+        : 
+        : "r"(user_ds), "r"(user_rsp), "r"(rflags), "r"(user_cs), "r"(entry_point)
+        : "rax", "memory"
+    );
+}
+
 
 void kernel_execute_command(){
     k_printf("\n");
@@ -64,6 +117,7 @@ void kernel_execute_command(){
         k_printf(" - reboot: Reboot the CPU\n");
         k_printf(" - meminfo: See how much RAM is being used\n");
         k_printf(" - drums of liberation: Awaken the Sun God!\n");
+        k_printf(" - jump\n");
     }
 
     else if(kernel_str_cmp(command_buffer, "clear") == 0){
@@ -76,6 +130,10 @@ void kernel_execute_command(){
 
     else if(kernel_str_cmp(command_buffer, "drums of liberation") == 0){
         k_printf("THE ONE PIECE IS REAL!\n");
+    }
+
+    else if(kernel_str_cmp(command_buffer, "jump") == 0){
+        jump_to_user_mode();
     }
 
     else if (buffer_position > 0){
@@ -126,7 +184,7 @@ void initialize_desc_tables(){
 
 void initialize_drivers(){
     remap_pic();
-    // timer_init(1000);
+    timer_init(1000);
 }
 
 void setup_memory_management(){
@@ -214,6 +272,8 @@ void kernel_start(boot_info_t* boot_info_recieved){
     setup_memory_management();
     initialize_frame_renderer();
     initialize_multitasking();
+
+    create_task(&task_A);
 
     k_printf("Project D v0.1. Type 'help'.\nProject D> ");
     

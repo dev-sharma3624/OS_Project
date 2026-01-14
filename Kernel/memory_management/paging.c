@@ -146,10 +146,10 @@ void paging_init(void* frame_buffer_addr, uint64_t frame_buffer_size, uint64_t t
     for(uint64_t addr = 0; addr < memory_end ; addr += 4096){ //mapping every 4kb page (base address) to it's corresponding virtual address
 
         paging_map_page(
-            kernel_pml4,                            //page table
-            (void*)P2V(addr),                       //virtual address
-            addr,                                   //phsyical address
-            PT_FLAG_PRESENT | PT_FLAG_READ_WRITE    //flags
+            kernel_pml4,                                                //page table
+            (void*)P2V(addr),                                           //virtual address
+            addr,                                                       //phsyical address
+            PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER   //flags
         );
         
     }
