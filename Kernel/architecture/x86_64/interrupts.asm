@@ -120,6 +120,7 @@ ISR_ERR    13   ; General protection fault
 ISR_ERR    14   ; Page Fault
 ISR_NO_ERR 32   ; IRQ0 (Timer) - This is the big one for scheduling!
 ISR_NO_ERR 33   ; IRQ1 (Keyboard)
+ISR_NO_ERR 128 ; System call
 
 interrupt_return:
     ; This function is where a NEW task "wakes up" for the first time.

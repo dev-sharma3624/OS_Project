@@ -13,6 +13,7 @@ extern void isr13(void);
 extern void isr14(void);
 extern void isr32(void);
 extern void isr33(void);
+extern void isr128(void);
 
 void idt_set_gate(unsigned char vector, void* isr, unsigned char flags){
     idt_desc_entry_t* entry = &main_idt[vector];
@@ -56,6 +57,7 @@ void idt_init(){
     idt_set_gate(14, isr14, INTERRUPT_GATE);
     idt_set_gate(32, isr32, INTERRUPT_GATE);
     idt_set_gate(33, isr33, INTERRUPT_GATE);
+    idt_set_gate(128, isr128, USER_INTERRUPT_GATE);
 
     _LoadIdt(&idtr);
 }
@@ -99,6 +101,20 @@ void isr_handler(trap_frame_t* trap_frame){
 
             case 14:
                 page_fault_handler(trap_frame);
+                break;
+            
+            default:
+                break;
+        }
+
+    }
+
+    //system call
+    else{
+        
+        switch (trap_frame->interrupt_no) {
+            case 128:
+                syscall_dispatcher(trap_frame);
                 break;
             
             default:

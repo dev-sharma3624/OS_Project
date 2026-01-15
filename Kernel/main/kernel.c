@@ -55,14 +55,18 @@ void kernel_print_memory_info() {
 
 // 1. The Target Function (This runs in Ring 3)
 void test_user_function() {
-    // WARNING: You cannot use 'printf' or any kernel function here!
-    // You are now in User Mode. Accessing kernel memory causes a GPF.
-    // We can only do simple math or an infinite loop for now.
+    char* msg = "I am free in Ring 3!\n";
+
+    asm volatile (
+        "mov $0, %%rax\n"   // Syscall Number
+        "mov %0, %%rbx\n"   // Arg 1
+        "int $0x80\n"       // Trigger Syscall
+        : 
+        : "r"(msg)
+        : "rax", "rbx"
+    );
     
-    volatile int i = 0;
-    while(1) {
-        i++; 
-    }
+    while(1) {}
 }
 
 // 2. The Switch Function
