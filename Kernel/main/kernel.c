@@ -5,7 +5,7 @@
 #include <architecture/x86_64/idt.h>
 #include <architecture/x86_64/pic.h>
 #include <drivers/keyboard_driver.h>
-#include <drivers/keyboard_map.h>
+// #include <drivers/keyboard_map.h>
 #include <memory_management/memory.h>
 #include <typedefs.h>
 #include <memory_management/pmm.h>
@@ -53,20 +53,49 @@ void kernel_print_memory_info() {
     k_printf("-------------------------\n");
 }
 
-// 1. The Target Function (This runs in Ring 3)
-void test_user_function() {
-    char* msg = "I am free in Ring 3!\n";
-
+void sys_read(char* buffer) {
     asm volatile (
-        "mov $0, %%rax\n"   // Syscall Number
-        "mov %0, %%rbx\n"   // Arg 1
-        "int $0x80\n"       // Trigger Syscall
-        : 
+        "mov $1, %%rax\n"
+        "mov %0, %%rdi\n"
+        "int $0x80\n"
+        :
+        : "r"(buffer)
+        : "rax", "rdi"
+    );
+}
+
+void sys_print(char* msg){
+    asm volatile (
+        "mov $0, %%rax\n"
+        "mov %0, %%rbx\n"
+        "int $0x80\n"
+        :
         : "r"(msg)
         : "rax", "rbx"
     );
-    
-    while(1) {}
+}
+
+// 1. The Target Function (This runs in Ring 3)
+void test_user_function() {
+    char input_char;
+    char echo_buf[2];
+    echo_buf[1] = 0; // Null terminator
+
+    sys_print("Interactive Shell v1.0\n");
+    sys_print("> ");
+
+    while (1) {
+        // This will BLOCK the process until you press a key!
+        sys_read(&input_char); 
+
+        // Echo it back
+        echo_buf[0] = input_char;
+        sys_print(echo_buf);
+        
+        if (input_char == '\n') {
+             sys_print("> ");
+        }
+    }
 }
 
 // 2. The Switch Function
@@ -279,7 +308,9 @@ void kernel_start(boot_info_t* boot_info_recieved){
 
     create_task(&task_A);
 
-    k_printf("Project D v0.1. Type 'help'.\nProject D> ");
+    jump_to_user_mode();
+
+    /* k_printf("Project D v0.1. Type 'help'.\nProject D> ");
     
     while (1)
     {
@@ -322,7 +353,7 @@ void kernel_start(boot_info_t* boot_info_recieved){
             }
         }
 
-    }
+    } */
 }
 
     /* 
