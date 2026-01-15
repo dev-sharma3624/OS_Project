@@ -2,6 +2,7 @@
 #include <cpu_scheduling/process.h>
 #include <architecture/x86_64/trap_frame.h>
 #include <memory_management/heap.h>
+#include <memory_management/paging.h>
 
 tcb_t* current_task = NULL;
 tcb_t* task_list_head = NULL;
@@ -20,6 +21,10 @@ void multitask_init(){
 
     current_task = kernel_task;
     task_list_head = kernel_task;
+
+    current_task->pml4 = get_kernel_page_table(); 
+    
+    current_task->heap_end = 0x10000000;
 
 }
 

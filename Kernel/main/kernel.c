@@ -75,27 +75,74 @@ void sys_print(char* msg){
     );
 }
 
-// 1. The Target Function (This runs in Ring 3)
-void test_user_function() {
-    char input_char;
-    char echo_buf[2];
-    echo_buf[1] = 0; // Null terminator
+void sys_exit(int code) {
+    asm volatile (
+        "mov $2, %%rax\n"
+        "mov %0, %%rdi\n"
+        "int $0x80\n"
+        :
+        : "r"((uint64_t)code)
+        : "rax", "rdi"
+    );
+    while(1) {} 
+}
 
-    sys_print("Interactive Shell v1.0\n");
-    sys_print("> ");
+void* sys_sbrk(int64_t increment) {
+    void* ret;
+    asm volatile (
+        "mov $3, %%rax\n"
+        "mov %1, %%rdi\n"
+        "int $0x80\n"
+        "mov %%rax, %0\n"
+        : "=r"(ret)
+        : "r"(increment)
+        : "rax", "rdi"
+    );
+    return ret;
+}
 
-    while (1) {
-        // This will BLOCK the process until you press a key!
-        sys_read(&input_char); 
-
-        // Echo it back
-        echo_buf[0] = input_char;
-        sys_print(echo_buf);
-        
-        if (input_char == '\n') {
-             sys_print("> ");
-        }
+void* malloc(uint64_t size) {
+    if (size == 0) return 0;
+    
+    void* ptr = sys_sbrk(size);
+    
+    // Check if sbrk failed (returned -1)
+    if (ptr == (void*)-1) {
+        return 0;
     }
+    
+    return ptr;
+}
+
+void test_user_function() {
+    /* sys_print("Hello! I am going to count to 3 and then vanish.\n");
+    
+    sys_print("1...\n");
+    sys_print("2...\n");
+    sys_print("3...\n");
+    
+    sys_print("Goodbye cruel world!\n");
+    
+    sys_exit(0);
+    
+    sys_print("ERROR: I am a ghost!\n"); */
+
+    sys_print("Testing Heap...\n");
+    
+    // Dynamic Allocation!
+    char* str = (char*)malloc(16);
+    
+    // Use the memory
+    str[0] = 'H';
+    str[1] = 'e';
+    str[2] = 'y';
+    str[3] = '!';
+    str[4] = '\n';
+    str[5] = 0;
+    
+    sys_print(str);
+    
+    sys_exit(0);
 }
 
 // 2. The Switch Function
