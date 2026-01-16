@@ -2,7 +2,7 @@
 #include <architecture/x86_64/tss.h>
 #include <architecture/x86_64/io.h>
 
-static tss_t tss = (tss_t){0};
+tss_t tss = (tss_t){0};
 
 gdt_t default_gdt;
 

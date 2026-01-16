@@ -114,6 +114,38 @@ void* malloc(uint64_t size) {
     return ptr;
 }
 
+void background_counter() {
+    int count = 0;
+    while(1) {
+        // Busy wait (approx 1 sec)
+        for(volatile int i=0; i<50000000; i++); 
+        
+        // Print safely
+        // Note: Make sure sys_print uses your lock!
+        sys_print(" [BG] "); 
+        
+        count++;
+    }
+}
+
+void test_user_function() {
+    char input_char;
+    char echo_buf[2];
+    echo_buf[1] = 0; // Null terminator
+    sys_print("Interactive Shell v1.0\n");
+    sys_print("> ");
+    while (1) {
+        // This will BLOCK the process until you press a key!
+        sys_read(&input_char); 
+        // Echo it back
+        echo_buf[0] = input_char;
+        sys_print(echo_buf);
+        if (input_char == '\n') {
+             sys_print("> ");
+        }
+    }
+}
+
 void test_user_function() {
     /* sys_print("Hello! I am going to count to 3 and then vanish.\n");
     
@@ -127,22 +159,25 @@ void test_user_function() {
     
     sys_print("ERROR: I am a ghost!\n"); */
 
-    sys_print("Testing Heap...\n");
-    
-    // Dynamic Allocation!
-    char* str = (char*)malloc(16);
-    
-    // Use the memory
-    str[0] = 'H';
-    str[1] = 'e';
-    str[2] = 'y';
-    str[3] = '!';
-    str[4] = '\n';
-    str[5] = 0;
-    
-    sys_print(str);
-    
-    sys_exit(0);
+    char input_char;
+    char echo_buf[2];
+    echo_buf[1] = 0; // Null terminator
+
+    sys_print("Interactive Shell v1.0\n");
+    sys_print("> ");
+
+    while (1) {
+        // This will BLOCK the process until you press a key!
+        sys_read(&input_char); 
+
+        // Echo it back
+        echo_buf[0] = input_char;
+        sys_print(echo_buf);
+        
+        if (input_char == '\n') {
+             sys_print("> ");
+        }
+    }
 }
 
 // 2. The Switch Function
@@ -353,9 +388,17 @@ void kernel_start(boot_info_t* boot_info_recieved){
     initialize_frame_renderer();
     initialize_multitasking();
 
-    create_task(&task_A);
+    // create_task(&task_A);
 
-    jump_to_user_mode();
+    k_printf("Spawning Shell...\n");
+    create_user_task(&test_user_function);
+
+    k_printf("Spawning Counter...\n");
+    create_user_task(&background_counter);
+
+    // schedule();
+
+    while(1);
 
     /* k_printf("Project D v0.1. Type 'help'.\nProject D> ");
     

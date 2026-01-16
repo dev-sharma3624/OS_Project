@@ -30,3 +30,4 @@ typedef struct tcb_t {
 
 void multitask_init();
 void create_task(void (*entry_point) (void)); // parameter -> pointer to a function that returns void
+void create_user_task(void (*entry_point)(void));

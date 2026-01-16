@@ -1,9 +1,12 @@
 #include <typedefs.h>
 #include <cpu_scheduling/process.h>
 #include <drivers/timer.h>
+#include <architecture/x86_64/tss.h>
 
 extern tcb_t* current_task;
 extern tcb_t* task_list_head;
+
+extern tss_t tss;
 
 extern void switch_task(tcb_t* old_task, tcb_t* next_task);
 
@@ -36,6 +39,7 @@ void schedule(){
     current_task = next_task;
     next_task->task_state = TASK_RUNNING;
 
+    tss.rsp0 = (uint64_t)next_task->stack_base + 4096;
     
     switch_task(old_task, next_task);
 
