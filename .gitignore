@@ -5,6 +5,7 @@
 *.efi
 *.bin
 *.elf
+*.img
 
 # Ignore the fake USB image folder (We build this on the fly)
 image/*

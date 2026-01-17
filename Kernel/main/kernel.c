@@ -15,6 +15,7 @@
 #include <cpu_scheduling/process.h>
 #include <cpu_scheduling/scheduler.h>
 #include <memory_management/m_desc.h>
+#include <drivers/pci.h>
 
 #define MAX_COMMAND_BUFFER 256
 char command_buffer[MAX_COMMAND_BUFFER];
@@ -125,24 +126,6 @@ void background_counter() {
         sys_print(" [BG] "); 
         
         count++;
-    }
-}
-
-void test_user_function() {
-    char input_char;
-    char echo_buf[2];
-    echo_buf[1] = 0; // Null terminator
-    sys_print("Interactive Shell v1.0\n");
-    sys_print("> ");
-    while (1) {
-        // This will BLOCK the process until you press a key!
-        sys_read(&input_char); 
-        // Echo it back
-        echo_buf[0] = input_char;
-        sys_print(echo_buf);
-        if (input_char == '\n') {
-             sys_print("> ");
-        }
     }
 }
 
@@ -390,13 +373,17 @@ void kernel_start(boot_info_t* boot_info_recieved){
 
     // create_task(&task_A);
 
-    k_printf("Spawning Shell...\n");
-    create_user_task(&test_user_function);
-
-    k_printf("Spawning Counter...\n");
-    create_user_task(&background_counter);
-
-    // schedule();
+    k_printf("Scanning PCI Bus...\n");
+    
+    pci_device_info_t nvme = pci_scan_for_device(CLASS_MASS_STORAGE, SUBCLASS_NVME);
+    
+    if (nvme.found) {
+        k_printf("SUCCESS: NVMe Drive Found!\n");
+        k_printf(" - Bus: %d, Slot: %d\n", nvme.bus, nvme.slot);
+        k_printf(" - Physical BAR Address: 0x%x\n", nvme.physical_address);
+    } else {
+        k_printf("FAILURE: No NVMe Drive found. Check QEMU flags!\n");
+    }
 
     while(1);
 
