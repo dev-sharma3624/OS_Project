@@ -18,7 +18,7 @@
 
 #define PCI_OFFSET_DEVICE_ID 0x02 //2-byte
 
-#define PCI_OFFSET_COMMAND 0x04 //2-byte, 2nd bit of command represents bus master/DMA enable status (on/off switch)
+#define PCI_OFFSET_COMMAND 0x04 //2-byte, 1st bit allows CPU to read driver's registers, 2nd bit of command represents bus master/DMA enable status (on/off switch)
 
 #define PCI_OFFSET_STATUS 0x06 //2-byte
 

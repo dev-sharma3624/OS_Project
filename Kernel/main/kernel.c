@@ -351,6 +351,62 @@ void initialize_multitasking(){
     multitask_init();
 }
 
+void setup_nvme(){
+
+    k_printf("Scanning PCI Bus...\n");
+    
+    pci_device_info_t nvme = pci_scan_for_device(CLASS_MASS_STORAGE, SUBCLASS_NVME);
+    
+    if (nvme.found) {
+        k_printf("SUCCESS: NVMe Drive Found!\n");
+        k_printf(" - Bus: %d, Slot: %d\n", nvme.bus, nvme.slot);
+        k_printf(" - Physical BAR Address: %p\n", nvme.physical_address);
+    } else {
+        k_printf("FAILURE: No NVMe Drive found. Check QEMU flags!\n");
+    }
+
+    uint64_t nvme_virt_addr = P2V(nvme.physical_address);
+
+    for(uint64_t i = 0; i < 4; i++){
+        paging_map_page(
+            get_kernel_page_table(),
+            (void*) (nvme_virt_addr + i*4096),
+            nvme.physical_address + (i*4096),
+            PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_WRITE_THROUGH | PT_FLAG_CACHE_DISABLED  
+        );
+    }
+
+    //flush the TLB for this address so that cpu forgets any old mappings
+    __asm__ volatile("invlpg (%0)" :: "r" (nvme_virt_addr));
+
+    volatile uint64_t* nvme_regs = (volatile uint64_t*)nvme_virt_addr;
+
+    // offset 0 : Capabilities regiester
+    uint64_t cap = nvme_regs[0];
+
+    // Bits 0-15: Max Queue Entries Supported (MQES) - The value is 0-based
+    uint16_t max_queue_entries = (cap & 0xFFFF) + 1;
+    
+    // Bits 24-31: Timeout (TO) in 500ms units
+    uint8_t timeout = (cap >> 24) & 0xFF; 
+
+    // Bits 32-35: Doorbell Stride (DSTRD) - How far apart the doorbells are spaced
+    uint8_t doorbell_stride = (cap >> 32) & 0xF;
+
+    k_printf("[NVMe] CAP Register Read: %p\n", cap);
+    k_printf("Max Queue Size: %d", max_queue_entries);
+    k_printf("Timeout limit: %d\n", timeout);;
+    k_printf("Doorbell Stride: 2^(%d) bytes\n", 2+doorbell_stride);
+
+    if (cap == 0xFFFFFFFFFFFFFFFF) {
+        k_printf("[ERROR] Read -1. Mapping Failed or Device Gone.\n");
+    } else if (cap == 0) {
+        k_printf("[ERROR] Read 0. Mapping likely pointing to empty RAM.\n");
+    } else {
+        k_printf("[SUCCESS] We are talking to the NVMe Controller!\n");
+    }
+}
+
 void kernel_start(boot_info_t* boot_info_recieved){
 
     if(!boot_info_recieved) return;
@@ -373,17 +429,7 @@ void kernel_start(boot_info_t* boot_info_recieved){
 
     // create_task(&task_A);
 
-    k_printf("Scanning PCI Bus...\n");
-    
-    pci_device_info_t nvme = pci_scan_for_device(CLASS_MASS_STORAGE, SUBCLASS_NVME);
-    
-    if (nvme.found) {
-        k_printf("SUCCESS: NVMe Drive Found!\n");
-        k_printf(" - Bus: %d, Slot: %d\n", nvme.bus, nvme.slot);
-        k_printf(" - Physical BAR Address: 0x%x\n", nvme.physical_address);
-    } else {
-        k_printf("FAILURE: No NVMe Drive found. Check QEMU flags!\n");
-    }
+    setup_nvme();
 
     while(1);
 
