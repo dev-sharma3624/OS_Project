@@ -17,4 +17,11 @@ typedef volatile struct {
     uint32_t cmbsz;     // 0x3C - Controller Memory Buffer Size
 } __attribute__((packed)) nvme_registers_t;
 
-void setup_nvme();
+typedef struct {
+    uint64_t* sq_virtual_addr; // For write commands
+    uint64_t* cq_virtual_addr; // For read completions
+    uint32_t  sq_tail;         // To track where we are writing
+    uint32_t  cq_head;         // To track what we've read
+} nvme_state_t;
+
+void nvme_setup();

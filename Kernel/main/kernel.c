@@ -374,7 +374,7 @@ void kernel_start(boot_info_t* boot_info_recieved){
 
     // create_task(&task_A);
 
-    setup_nvme();
+    nvme_setup();
 
     while(1);
 
