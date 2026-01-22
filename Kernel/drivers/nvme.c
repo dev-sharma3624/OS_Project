@@ -6,10 +6,12 @@
 #include <memory_management/memory.h>
 #include <libs/k_printf.h>
 
+#define NVME_OPCODE_CREATE_IO_SQ  0x01
 #define NVME_OPCODE_CREATE_IO_CQ 0x05
 #define NVME_OPCODE_IDENTIFY 0x06
 
-static nvme_state_t nvme_state;
+static nvme_state_t nvme_admin_state;
+static nvme_state_t nvme_io_state;
 static uint32_t last_cid;
 
 void print_nvme_logs1(nvme_registers_t* nvme_regs){
@@ -151,20 +153,20 @@ void nvme_setup_admin_sc_queues(nvme_registers_t* nvme_regs){
         __asm__ volatile("pause");
     }
 
-    nvme_state.sq_virtual_addr = (uint64_t*) P2V(submission_queue);
-    nvme_state.cq_virtual_addr = (uint64_t*) P2V(completion_queue);
-    nvme_state.sq_tail = 0;
-    nvme_state.cq_head = 0;
-    nvme_state.sq_size = asqs;
-    nvme_state.cq_size = acqs;
-    nvme_state.admin_phase = 1;
+    nvme_admin_state.sq_virtual_addr = (uint64_t*) P2V(submission_queue);
+    nvme_admin_state.cq_virtual_addr = (uint64_t*) P2V(completion_queue);
+    nvme_admin_state.sq_tail = 0;
+    nvme_admin_state.cq_head = 0;
+    nvme_admin_state.sq_size = asqs;
+    nvme_admin_state.cq_size = acqs;
+    nvme_admin_state.admin_phase = 1;
 
 }
 
 //creates new empty submission queue entry for the admin submission queue
 nvme_sqe_t* nvme_create_sqe(){
-    uint32_t sq_tail = nvme_state.sq_tail;
-    nvme_sqe_t* sq = (nvme_sqe_t*) nvme_state.sq_virtual_addr;
+    uint32_t sq_tail = nvme_admin_state.sq_tail;
+    nvme_sqe_t* sq = (nvme_sqe_t*) nvme_admin_state.sq_virtual_addr;
     nvme_sqe_t* cmd = &sq[sq_tail];
     memset((void*)cmd, 0, sizeof(nvme_sqe_t));
     return cmd;
@@ -173,20 +175,20 @@ nvme_sqe_t* nvme_create_sqe(){
 //notification to controller about new request in admission submission queue
 void nvme_ring_sq_doorbell(pci_device_info_t* nvme){
 
-    nvme_state.sq_tail = (nvme_state.sq_tail + 1) % nvme_state.sq_size;
+    nvme_admin_state.sq_tail = (nvme_admin_state.sq_tail + 1) % nvme_admin_state.sq_size;
 
     volatile uint32_t* sq_tail_doorbell = (uint32_t*) (P2V(nvme->physical_address) + 0x1000);
-    *sq_tail_doorbell = nvme_state.sq_tail;
+    *sq_tail_doorbell = nvme_admin_state.sq_tail;
 }
 
 //reading completion queue entry from admin completion queue
 void nvme_admin_completion_poll(pci_device_info_t* nvme){
 
     //creating new completion queue entry to read from
-    uint32_t cq_head = nvme_state.cq_head;
-    nvme_cqe_t* cq = (nvme_cqe_t*) nvme_state.cq_virtual_addr;
+    uint32_t cq_head = nvme_admin_state.cq_head;
+    nvme_cqe_t* cq = (nvme_cqe_t*) nvme_admin_state.cq_virtual_addr;
     nvme_cqe_t* cqe = &cq[cq_head];
-    uint16_t current_phase = nvme_state.admin_phase;
+    uint16_t current_phase = nvme_admin_state.admin_phase;
 
     while(1){
 
@@ -205,21 +207,21 @@ void nvme_admin_completion_poll(pci_device_info_t* nvme){
     }
 
     //incrementin completion queue head
-    nvme_state.cq_head++;
-    if(nvme_state.cq_head > nvme_state.cq_size){
-        nvme_state.cq_head = 0;
-        nvme_state.admin_phase = !current_phase;
+    nvme_admin_state.cq_head++;
+    if(nvme_admin_state.cq_head > nvme_admin_state.cq_size){
+        nvme_admin_state.cq_head = 0;
+        nvme_admin_state.admin_phase = !current_phase;
     }
 
     //notifying the device that entries till this index have been processed
     volatile uint32_t* cq_head_doorbell = (uint32_t*) (P2V(nvme->physical_address) + 0x1004);
-    *cq_head_doorbell = nvme_state.cq_head;
+    *cq_head_doorbell = nvme_admin_state.cq_head;
     
 }
 
 void nvme_setup_io_cq(pci_device_info_t* nvme){
 
-    //gettin physical memory where completion data structure will be written by the controller
+    //gettin physical memory where submission data structure will be written by the driver
     uint64_t io_cq_phy_addr = (uint64_t) pmm_request_page();
     memset((void*) P2V(io_cq_phy_addr), 0, 4096);
 
@@ -239,8 +241,45 @@ void nvme_setup_io_cq(pci_device_info_t* nvme){
 
     nvme_admin_completion_poll(nvme);
 
+    nvme_io_state.cq_virtual_addr = P2V(io_cq_phy_addr);
+    nvme_io_state.cq_head = 0;
+    nvme_io_state.cq_size = 255;
+
     k_printf("SUCCESS: I/O Completion Queue 1 Created!\n");
 
+}
+
+void nvme_setup_io_sq(pci_device_info_t* nvme) {
+
+    //getting physical memory where completion data structure will be written by the controller
+    uint64_t io_sq_phy_addr = (uint64_t) pmm_request_page();
+    memset((void*) P2V(io_sq_phy_addr), 0, 4096);
+
+    nvme_sqe_t* cmd = nvme_create_sqe();
+
+    cmd->opcode = NVME_OPCODE_CREATE_IO_SQ; // 0x01
+    cmd->cid = ++last_cid;
+    cmd->prp1 = io_sq_phy_addr;
+
+    // CDW10: Queue Size (63 for 64 entries) | Queue ID (1)
+    uint16_t q_size = 63; 
+    uint16_t q_id = 1;
+    cmd->cdw10 = (q_size << 16) | q_id;
+
+    // CDW11: Queue Flags & CQ Binding
+    // Bits [31:16] = Completion Queue ID to use (We want CQ ID 1 because that's what we setup while setting up completion queue)
+    // Bit 0 = 1 (Physically Contiguous)
+    uint16_t completion_queue_id = 1;
+    cmd->cdw11 = (completion_queue_id << 16) | 1;
+
+    nvme_ring_sq_doorbell(nvme);
+    nvme_admin_completion_poll(nvme);
+    
+    nvme_io_state.sq_virtual_addr = P2V(io_sq_phy_addr);
+    nvme_io_state.sq_tail = 0;
+    nvme_io_state.sq_size = 63;
+    
+    k_printf("SUCCESS: I/O Submission Queue 1 Created!\n");
 }
 
 void nvme_setup_io_queue_sizes(nvme_registers_t* nvme_regs){
@@ -336,4 +375,5 @@ void nvme_setup(){
     nvme_setup_io_queue_sizes(nvme_regs);
 
     nvme_setup_io_cq(nvme);
+    nvme_setup_io_sq(nvme);
 }
