@@ -6,6 +6,9 @@
 #include <memory_management/memory.h>
 #include <libs/k_printf.h>
 
+#define NVME_OPCODE_CREATE_IO_CQ 0x05
+#define NVME_OPCODE_IDENTIFY 0x06
+
 static nvme_state_t nvme_state;
 static uint32_t last_cid;
 
@@ -158,8 +161,28 @@ void nvme_setup_admin_sc_queues(nvme_registers_t* nvme_regs){
 
 }
 
+//creates new empty submission queue entry for the admin submission queue
+nvme_sqe_t* nvme_create_sqe(){
+    uint32_t sq_tail = nvme_state.sq_tail;
+    nvme_sqe_t* sq = (nvme_sqe_t*) nvme_state.sq_virtual_addr;
+    nvme_sqe_t* cmd = &sq[sq_tail];
+    memset((void*)cmd, 0, sizeof(nvme_sqe_t));
+    return cmd;
+}
+
+//notification to controller about new request in admission submission queue
+void nvme_ring_sq_doorbell(pci_device_info_t* nvme){
+
+    nvme_state.sq_tail = (nvme_state.sq_tail + 1) % nvme_state.sq_size;
+
+    volatile uint32_t* sq_tail_doorbell = (uint32_t*) (P2V(nvme->physical_address) + 0x1000);
+    *sq_tail_doorbell = nvme_state.sq_tail;
+}
+
+//reading completion queue entry from admin completion queue
 void nvme_admin_completion_poll(pci_device_info_t* nvme){
 
+    //creating new completion queue entry to read from
     uint32_t cq_head = nvme_state.cq_head;
     nvme_cqe_t* cq = (nvme_cqe_t*) nvme_state.cq_virtual_addr;
     nvme_cqe_t* cqe = &cq[cq_head];
@@ -167,6 +190,7 @@ void nvme_admin_completion_poll(pci_device_info_t* nvme){
 
     while(1){
 
+        //waiting for the phase bit to flip to stop polling
         if((cqe->status & 0x01) == current_phase){
             break;
         }
@@ -180,16 +204,53 @@ void nvme_admin_completion_poll(pci_device_info_t* nvme){
         k_printf("NVMe Error! Status: %p\n", status_code);
     }
 
+    //incrementin completion queue head
     nvme_state.cq_head++;
-
     if(nvme_state.cq_head > nvme_state.cq_size){
         nvme_state.cq_head = 0;
         nvme_state.admin_phase = !current_phase;
     }
 
+    //notifying the device that entries till this index have been processed
     volatile uint32_t* cq_head_doorbell = (uint32_t*) (P2V(nvme->physical_address) + 0x1004);
-    *cq_head_doorbell = nvme_state.cq_head - 1;
+    *cq_head_doorbell = nvme_state.cq_head;
     
+}
+
+void nvme_setup_io_cq(pci_device_info_t* nvme){
+
+    //gettin physical memory where completion data structure will be written by the controller
+    uint64_t io_cq_phy_addr = (uint64_t) pmm_request_page();
+    memset((void*) P2V(io_cq_phy_addr), 0, 4096);
+
+    //creating the a new empty submission queue entry
+    nvme_sqe_t* cmd = nvme_create_sqe();
+
+    cmd->opcode = NVME_OPCODE_CREATE_IO_CQ;
+    cmd->cid = ++last_cid;
+    cmd->prp1 = io_cq_phy_addr;
+
+    uint16_t queue_size = 255; //max number of element that the queue will hold
+    uint16_t queue_id = 1;
+    cmd->cdw10 = (queue_size << 16) | 1;
+    cmd->cdw11 = 1; //physically contiguous block of memory
+
+    nvme_ring_sq_doorbell(nvme);
+
+    nvme_admin_completion_poll(nvme);
+
+    k_printf("SUCCESS: I/O Completion Queue 1 Created!\n");
+
+}
+
+void nvme_setup_io_queue_sizes(nvme_registers_t* nvme_regs){
+
+    nvme_regs->cc &= ~(0xF << 20); // Clear IOCQES
+    nvme_regs->cc &= ~(0xF << 16); // Clear IOSQES
+
+    nvme_regs->cc |= (4 << 20);    // Set IOCQES to 4 (16 bytes)
+    nvme_regs->cc |= (6 << 16);    // Set IOSQES to 6 (64 bytes)
+
 }
 
 void print_identify_data(nvme_identify_data_t* data) {
@@ -228,23 +289,24 @@ void print_identify_data(nvme_identify_data_t* data) {
 
 void nvme_identify_controller(pci_device_info_t* nvme){
 
+    //location where driver will write the data in memory
     nvme_identify_data_t* buffer = (nvme_identify_data_t*) pmm_request_page();
 
-    uint32_t sq_tail = nvme_state.sq_tail;
-    nvme_sqe_t* sq = (nvme_sqe_t*) nvme_state.sq_virtual_addr;
-    nvme_sqe_t* cmd = &sq[sq_tail];
-    memset((void*)cmd, 0, sizeof(nvme_sqe_t));
+    //adding a new request to the sumbission queue
+    nvme_sqe_t* cmd = nvme_create_sqe();
 
-    cmd->opcode = 0x06;
+    cmd->opcode = NVME_OPCODE_IDENTIFY;
     cmd->cid = ++last_cid;
     cmd->prp1 = (uint64_t) buffer;
+
+    //for identify command, cdw10 (00:01) = 1 returns
+    //the identify controller data structure
     cmd->cdw10 = 1;
 
-    nvme_state.sq_tail = (nvme_state.sq_tail + 1) % nvme_state.sq_size;
+    //notifying controller about the new request
+    nvme_ring_sq_doorbell(nvme);
 
-    volatile uint32_t* sq_tail_doorbell = (uint32_t*) (P2V(nvme->physical_address) + 0x1000);
-    *sq_tail_doorbell = nvme_state.sq_tail;
-
+    //polling until phase bit in status code flips
     nvme_admin_completion_poll(nvme);
 
     nvme_identify_data_t* buffer_virtual = (nvme_identify_data_t*) P2V(buffer);
@@ -270,4 +332,8 @@ void nvme_setup(){
     print_nvme_logs1(nvme_regs);
 
     nvme_identify_controller(nvme);
+
+    nvme_setup_io_queue_sizes(nvme_regs);
+
+    nvme_setup_io_cq(nvme);
 }
