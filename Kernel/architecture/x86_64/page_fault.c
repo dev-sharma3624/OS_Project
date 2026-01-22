@@ -17,9 +17,9 @@ void page_fault_handler(trap_frame_t* frame) {
     print_address_hex((void*)frame->error_code); */
 
     k_printf("--- PAGE FAULT ---\n");
-    k_printf("Crash Address: %x", bad_address);
-    k_printf("\nInstruction: %x", frame->rip);
-    k_printf("\nError Code: %x", frame->error_code);
+    k_printf("Crash Address: %p", bad_address);
+    k_printf("\nInstruction: %p", frame->rip);
+    k_printf("\nError Code: %p", frame->error_code);
     
     k_printf("\nSYSTEM HALTED.");
     while(1) asm volatile("hlt");
