@@ -7,6 +7,7 @@
 #include <libs/k_printf.h>
 
 static nvme_state_t nvme_state;
+static uint32_t last_cid;
 
 void print_nvme_logs1(nvme_registers_t* nvme_regs){
 
@@ -101,9 +102,9 @@ void nvme_fetch_device(pci_device_info_t* nvme){
 
 }
 
-void nvme_setup_submission_queues(nvme_registers_t* nvme_regs){
+void nvme_setup_admin_sc_queues(nvme_registers_t* nvme_regs){
 
-    //get physical pages for queues
+    //get physical pages for admin queues
     uint64_t* submission_queue = (uint64_t*) pmm_request_page();
     uint64_t* completion_queue = (uint64_t*) pmm_request_page();
 
@@ -113,15 +114,15 @@ void nvme_setup_submission_queues(nvme_registers_t* nvme_regs){
 
 
 
-    //admission submission queue size
+    //admin submission queue size
     //one entry in submission queue is 64 bytes => 4096(page size) / 64 = 64 slots
     //asqs is 0 based that is why 63 (0x3F)
     uint32_t asqs = 0x3F;
 
     nvme_regs->aqa |= asqs;
 
-    //admission completion queue size
-    //one entry is completion queue is 16 bytes => 4096 / 16 = 256 slots
+    //admin completion queue size
+    //one entry in completion queue is 16 bytes => 4096 / 16 = 256 slots
     //acqs is also 0 based that is why 255 (0xFF)
     uint32_t acqs = 0xFF << 16;
 
@@ -151,6 +152,104 @@ void nvme_setup_submission_queues(nvme_registers_t* nvme_regs){
     nvme_state.cq_virtual_addr = (uint64_t*) P2V(completion_queue);
     nvme_state.sq_tail = 0;
     nvme_state.cq_head = 0;
+    nvme_state.sq_size = asqs;
+    nvme_state.cq_size = acqs;
+    nvme_state.admin_phase = 1;
+
+}
+
+void nvme_admin_completion_poll(pci_device_info_t* nvme){
+
+    uint32_t cq_head = nvme_state.cq_head;
+    nvme_cqe_t* cq = (nvme_cqe_t*) nvme_state.cq_virtual_addr;
+    nvme_cqe_t* cqe = &cq[cq_head];
+    uint16_t current_phase = nvme_state.admin_phase;
+
+    while(1){
+
+        if((cqe->status & 0x01) == current_phase){
+            break;
+        }
+
+        __asm__ volatile("pause");
+
+    }
+
+    uint16_t status_code = cqe->status >> 1;
+    if(status_code != 0){
+        k_printf("NVMe Error! Status: %p\n", status_code);
+    }
+
+    nvme_state.cq_head++;
+
+    if(nvme_state.cq_head > nvme_state.cq_size){
+        nvme_state.cq_head = 0;
+        nvme_state.admin_phase = !current_phase;
+    }
+
+    volatile uint32_t* cq_head_doorbell = (uint32_t*) (P2V(nvme->physical_address) + 0x1004);
+    *cq_head_doorbell = nvme_state.cq_head - 1;
+    
+}
+
+void print_identify_data(nvme_identify_data_t* data) {
+    char model[41];  // 40 chars + 1 null
+    char serial[21]; // 20 chars + 1 null
+
+    // 1. Manual Loop Copy for Model Number (40 bytes)
+    for (int i = 0; i < 40; i++) {
+        model[i] = data->mn[i];
+    }
+    model[40] = '\0'; // Force null terminator
+
+    // 2. Manual Loop Copy for Serial Number (20 bytes)
+    for (int i = 0; i < 20; i++) {
+        serial[i] = data->sn[i];
+    }
+    serial[20] = '\0'; // Force null terminator
+
+    // 3. Trim trailing spaces (because NVMe pads with space, not null)
+    // We scan backwards from the end. If it's a space, turn it into a null.
+    // If it's not a space, we stop (so we don't delete spaces inside the name).
+    for (int i = 39; i >= 0; i--) {
+        if (model[i] == ' ') model[i] = '\0';
+        else break; 
+    }
+
+    for (int i = 19; i >= 0; i--) {
+        if (serial[i] == ' ') serial[i] = '\0';
+        else break;
+    }
+
+    k_printf("NVMe Drive Found:\n");
+    k_printf("Model: %s\n", model);
+    k_printf("Serial: %s\n", serial);
+}
+
+void nvme_identify_controller(pci_device_info_t* nvme){
+
+    nvme_identify_data_t* buffer = (nvme_identify_data_t*) pmm_request_page();
+
+    uint32_t sq_tail = nvme_state.sq_tail;
+    nvme_sqe_t* sq = (nvme_sqe_t*) nvme_state.sq_virtual_addr;
+    nvme_sqe_t* cmd = &sq[sq_tail];
+    memset((void*)cmd, 0, sizeof(nvme_sqe_t));
+
+    cmd->opcode = 0x06;
+    cmd->cid = ++last_cid;
+    cmd->prp1 = (uint64_t) buffer;
+    cmd->cdw10 = 1;
+
+    nvme_state.sq_tail = (nvme_state.sq_tail + 1) % nvme_state.sq_size;
+
+    volatile uint32_t* sq_tail_doorbell = (uint32_t*) (P2V(nvme->physical_address) + 0x1000);
+    *sq_tail_doorbell = nvme_state.sq_tail;
+
+    nvme_admin_completion_poll(nvme);
+
+    nvme_identify_data_t* buffer_virtual = (nvme_identify_data_t*) P2V(buffer);
+
+    print_identify_data(buffer_virtual);
 
 }
 
@@ -166,7 +265,9 @@ void nvme_setup(){
 
     nvme_disable(nvme_regs);
 
-    nvme_setup_submission_queues(nvme_regs);
+    nvme_setup_admin_sc_queues(nvme_regs);
 
     print_nvme_logs1(nvme_regs);
+
+    nvme_identify_controller(nvme);
 }
