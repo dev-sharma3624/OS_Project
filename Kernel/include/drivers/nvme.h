@@ -27,7 +27,7 @@ typedef struct {
     uint32_t  cq_head;         // To track what we've read
     uint32_t sq_size;          // Max entries supported by submission queue
     uint32_t cq_size;          // Max entries supported by completion queue
-    uint8_t admin_phase;       // whether bit flips from 0->1 or 1->0 for a new entry, starts at 1. So for the first time bit flips from 0->1 when a new entry is there.
+    uint8_t phase;       // whether bit flips from 0->1 or 1->0 for a new entry, starts at 1. So for the first time bit flips from 0->1 when a new entry is there.
 } nvme_state_t;
 
 // NVMe Submission Queue Entry (64 bytes)

@@ -5,10 +5,20 @@
 #include <memory_management/pmm.h>
 #include <memory_management/memory.h>
 #include <libs/k_printf.h>
+#include <libs/k_string.h>
 
 #define NVME_OPCODE_CREATE_IO_SQ  0x01
+#define NVME_OPCODE_WRITE 0x01
+#define NVME_OPCODE_READ 0x02
 #define NVME_OPCODE_CREATE_IO_CQ 0x05
 #define NVME_OPCODE_IDENTIFY 0x06
+
+typedef enum {
+    ADMIN,
+    IO_1
+} queue_type_t;
+
+static uint32_t stride; //in bytes
 
 static nvme_state_t nvme_admin_state;
 static nvme_state_t nvme_io_state;
@@ -159,36 +169,86 @@ void nvme_setup_admin_sc_queues(nvme_registers_t* nvme_regs){
     nvme_admin_state.cq_head = 0;
     nvme_admin_state.sq_size = asqs;
     nvme_admin_state.cq_size = acqs;
-    nvme_admin_state.admin_phase = 1;
+    nvme_admin_state.phase = 1;
 
 }
 
 //creates new empty submission queue entry for the admin submission queue
-nvme_sqe_t* nvme_create_sqe(){
-    uint32_t sq_tail = nvme_admin_state.sq_tail;
-    nvme_sqe_t* sq = (nvme_sqe_t*) nvme_admin_state.sq_virtual_addr;
+nvme_sqe_t* nvme_create_sqe(queue_type_t q_type){
+
+    nvme_state_t* current_state;
+    switch (q_type) {
+
+        case ADMIN:
+            current_state = &nvme_admin_state;
+            break;
+        
+        case IO_1:
+            current_state = &nvme_io_state;
+            break;
+        default:
+            return;
+    }
+
+    uint32_t sq_tail = current_state->sq_tail;
+    nvme_sqe_t* sq = (nvme_sqe_t*) current_state->sq_virtual_addr;
     nvme_sqe_t* cmd = &sq[sq_tail];
     memset((void*)cmd, 0, sizeof(nvme_sqe_t));
     return cmd;
 }
 
 //notification to controller about new request in admission submission queue
-void nvme_ring_sq_doorbell(pci_device_info_t* nvme){
+void nvme_ring_sq_doorbell(pci_device_info_t* nvme, queue_type_t queue_type){
 
-    nvme_admin_state.sq_tail = (nvme_admin_state.sq_tail + 1) % nvme_admin_state.sq_size;
+    nvme_state_t* current_state;
+    uint32_t qid;
+    switch (queue_type) {
+        case ADMIN:
+            current_state = &nvme_admin_state;
+            qid = 0;
+            break;
+        
+        case IO_1:
+            current_state = &nvme_io_state;
+            qid = 1;
+            break;
 
-    volatile uint32_t* sq_tail_doorbell = (uint32_t*) (P2V(nvme->physical_address) + 0x1000);
-    *sq_tail_doorbell = nvme_admin_state.sq_tail;
+        default:
+            return;
+    }
+
+    current_state->sq_tail = (current_state->sq_tail + 1) % current_state->sq_size;
+
+    uint32_t doorbell_offset = 0x1000 + (2 * qid * stride);
+    volatile uint32_t* sq_tail_doorbell = (uint32_t*) (P2V(nvme->physical_address) + doorbell_offset);
+    *sq_tail_doorbell = current_state->sq_tail;
 }
 
 //reading completion queue entry from admin completion queue
-void nvme_admin_completion_poll(pci_device_info_t* nvme){
+void nvme_completion_poll(pci_device_info_t* nvme, queue_type_t queue_type){
+
+    nvme_state_t* current_state;
+    uint32_t qid;
+    switch (queue_type) {
+        case ADMIN:
+            current_state = &nvme_admin_state;
+            qid = 0;
+            break;
+        
+        case IO_1:
+            current_state = &nvme_io_state;
+            qid = 1;
+            break;
+
+        default:
+            return;
+    }
 
     //creating new completion queue entry to read from
-    uint32_t cq_head = nvme_admin_state.cq_head;
-    nvme_cqe_t* cq = (nvme_cqe_t*) nvme_admin_state.cq_virtual_addr;
+    uint32_t cq_head = current_state->cq_head;
+    nvme_cqe_t* cq = (nvme_cqe_t*) current_state->cq_virtual_addr;
     nvme_cqe_t* cqe = &cq[cq_head];
-    uint16_t current_phase = nvme_admin_state.admin_phase;
+    uint16_t current_phase = current_state->phase;
 
     while(1){
 
@@ -207,15 +267,16 @@ void nvme_admin_completion_poll(pci_device_info_t* nvme){
     }
 
     //incrementin completion queue head
-    nvme_admin_state.cq_head++;
-    if(nvme_admin_state.cq_head > nvme_admin_state.cq_size){
-        nvme_admin_state.cq_head = 0;
-        nvme_admin_state.admin_phase = !current_phase;
+    current_state->cq_head++;
+    if(current_state->cq_head >= current_state->cq_size){
+        current_state->cq_head = 0;
+        current_state->phase = !current_phase;
     }
 
     //notifying the device that entries till this index have been processed
-    volatile uint32_t* cq_head_doorbell = (uint32_t*) (P2V(nvme->physical_address) + 0x1004);
-    *cq_head_doorbell = nvme_admin_state.cq_head;
+    uint32_t doorbell_offset = 0x1000 + (((2 * qid) + 1) * stride);
+    volatile uint32_t* cq_head_doorbell = (uint32_t*) (P2V(nvme->physical_address) + doorbell_offset);
+    *cq_head_doorbell = current_state->cq_head;
     
 }
 
@@ -226,10 +287,11 @@ void nvme_setup_io_cq(pci_device_info_t* nvme){
     memset((void*) P2V(io_cq_phy_addr), 0, 4096);
 
     //creating the a new empty submission queue entry
-    nvme_sqe_t* cmd = nvme_create_sqe();
+    nvme_sqe_t* cmd = nvme_create_sqe(ADMIN);
 
     cmd->opcode = NVME_OPCODE_CREATE_IO_CQ;
     cmd->cid = ++last_cid;
+    cmd->nsid = 0;
     cmd->prp1 = io_cq_phy_addr;
 
     uint16_t queue_size = 255; //max number of element that the queue will hold
@@ -237,13 +299,14 @@ void nvme_setup_io_cq(pci_device_info_t* nvme){
     cmd->cdw10 = (queue_size << 16) | 1;
     cmd->cdw11 = 1; //physically contiguous block of memory
 
-    nvme_ring_sq_doorbell(nvme);
+    nvme_ring_sq_doorbell(nvme, ADMIN);
 
-    nvme_admin_completion_poll(nvme);
+    nvme_completion_poll(nvme, ADMIN);
 
     nvme_io_state.cq_virtual_addr = P2V(io_cq_phy_addr);
     nvme_io_state.cq_head = 0;
     nvme_io_state.cq_size = 255;
+    nvme_io_state.phase = 1;
 
     k_printf("SUCCESS: I/O Completion Queue 1 Created!\n");
 
@@ -255,10 +318,11 @@ void nvme_setup_io_sq(pci_device_info_t* nvme) {
     uint64_t io_sq_phy_addr = (uint64_t) pmm_request_page();
     memset((void*) P2V(io_sq_phy_addr), 0, 4096);
 
-    nvme_sqe_t* cmd = nvme_create_sqe();
+    nvme_sqe_t* cmd = nvme_create_sqe(ADMIN);
 
     cmd->opcode = NVME_OPCODE_CREATE_IO_SQ; // 0x01
     cmd->cid = ++last_cid;
+    cmd->nsid = 0;
     cmd->prp1 = io_sq_phy_addr;
 
     // CDW10: Queue Size (63 for 64 entries) | Queue ID (1)
@@ -272,8 +336,8 @@ void nvme_setup_io_sq(pci_device_info_t* nvme) {
     uint16_t completion_queue_id = 1;
     cmd->cdw11 = (completion_queue_id << 16) | 1;
 
-    nvme_ring_sq_doorbell(nvme);
-    nvme_admin_completion_poll(nvme);
+    nvme_ring_sq_doorbell(nvme, ADMIN);
+    nvme_completion_poll(nvme, ADMIN);
     
     nvme_io_state.sq_virtual_addr = P2V(io_sq_phy_addr);
     nvme_io_state.sq_tail = 0;
@@ -332,10 +396,11 @@ void nvme_identify_controller(pci_device_info_t* nvme){
     nvme_identify_data_t* buffer = (nvme_identify_data_t*) pmm_request_page();
 
     //adding a new request to the sumbission queue
-    nvme_sqe_t* cmd = nvme_create_sqe();
+    nvme_sqe_t* cmd = nvme_create_sqe(ADMIN);
 
     cmd->opcode = NVME_OPCODE_IDENTIFY;
     cmd->cid = ++last_cid;
+    cmd->nsid = 0;
     cmd->prp1 = (uint64_t) buffer;
 
     //for identify command, cdw10 (00:01) = 1 returns
@@ -343,15 +408,92 @@ void nvme_identify_controller(pci_device_info_t* nvme){
     cmd->cdw10 = 1;
 
     //notifying controller about the new request
-    nvme_ring_sq_doorbell(nvme);
+    nvme_ring_sq_doorbell(nvme, ADMIN);
 
     //polling until phase bit in status code flips
-    nvme_admin_completion_poll(nvme);
+    nvme_completion_poll(nvme, ADMIN);
 
     nvme_identify_data_t* buffer_virtual = (nvme_identify_data_t*) P2V(buffer);
 
     print_identify_data(buffer_virtual);
 
+}
+
+void nvme_read_sector(pci_device_info_t* nvme, uint64_t lba, uint64_t buffer_phy_addr){
+
+    nvme_sqe_t* cmd = nvme_create_sqe(IO_1);
+
+    cmd->opcode = NVME_OPCODE_READ;
+    cmd->cid = ++last_cid;
+    cmd->nsid = 1;
+    cmd->prp1 = buffer_phy_addr;
+    cmd->cdw10 = lba & 0xFFFFFFFF;
+    cmd->cdw11 = lba >> 32;
+    cmd->cdw12 = 0;
+
+    nvme_ring_sq_doorbell(nvme, IO_1);
+    nvme_completion_poll(nvme, IO_1);
+
+}
+
+void nvme_write_sector(pci_device_info_t* nvme, uint64_t lba, uint64_t buffer_phy_addr){
+
+    //******************************************************************
+    //******************************************************************
+    //******************************************************************
+    //******************************************************************
+
+    //ADD SAFETY CHECK HERE WHEN TESTING ON REAL DEVICE
+
+    //******************************************************************
+    //******************************************************************
+    //******************************************************************
+    //******************************************************************
+
+    nvme_sqe_t* cmd = nvme_create_sqe(IO_1);
+
+    cmd->opcode = NVME_OPCODE_WRITE;
+    cmd->cid = ++last_cid;
+    cmd->nsid = 1;
+    cmd->prp1 = buffer_phy_addr;
+    cmd->cdw10 = lba & 0xFFFFFFFF;
+    cmd->cdw11 = lba >> 32;
+    cmd->cdw12 = 0;
+
+    nvme_ring_sq_doorbell(nvme, IO_1);
+
+    nvme_completion_poll(nvme, IO_1);
+}
+
+void nvme_test_rw(pci_device_info_t* nvme) {
+
+    k_printf("\n[TEST] Starting NVMe Read/Write Test...\n");
+
+    uint64_t phys_addr = (uint64_t)pmm_request_page();
+    uint64_t* virt_addr = (uint64_t*)P2V(phys_addr);
+
+    char* msg = "ARCHITECT_WAS_HERE";
+    k_strcpy((char*)virt_addr, msg);
+
+    virt_addr[10] = 0xCAFEBABE;
+    virt_addr[11] = 0xDEADBEEF;
+
+    k_printf("[TEST] Writing pattern to LBA 5...\n");
+    nvme_write_sector(nvme, 5, phys_addr);
+    
+    memset(virt_addr, 0, 4096);
+    
+    k_printf("[TEST] Reading back from LBA 5...\n");
+    nvme_read_sector(nvme, 5, phys_addr);
+
+    if (k_strcmp((char*)virt_addr, msg) == 0 && virt_addr[10] == 0xCAFEBABE) {
+        k_printf("[SUCCESS] Data Match! NVMe Driver is OPERATIONAL.\n");
+        k_printf("          Read: %s, Magic: %p\n", (char*)virt_addr, virt_addr[10]);
+    } else {
+        k_printf("[FAILURE] Data Mismatch.\n");
+        k_printf("          Expected: %s\n", msg);
+        k_printf("          Got:      %s\n", (char*)virt_addr);
+    }
 }
 
 void nvme_setup(){
@@ -366,6 +508,10 @@ void nvme_setup(){
 
     nvme_disable(nvme_regs);
 
+    // Bits 32-35: Doorbell Stride (DSTRD) - How far apart the doorbells are spaced
+    uint8_t doorbell_stride = (nvme_regs->cap >> 32) & 0xF;
+    stride = (uint32_t) (4 << doorbell_stride);
+
     nvme_setup_admin_sc_queues(nvme_regs);
 
     print_nvme_logs1(nvme_regs);
@@ -376,4 +522,6 @@ void nvme_setup(){
 
     nvme_setup_io_cq(nvme);
     nvme_setup_io_sq(nvme);
+
+    nvme_test_rw(nvme);
 }
