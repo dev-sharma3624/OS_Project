@@ -69,4 +69,24 @@ typedef struct {
     uint8_t  padding[4024];
 } __attribute__((packed)) nvme_identify_data_t;
 
+// Describes one supported LBA format (e.g., 512B, 4KB)
+typedef struct {
+    uint16_t metadata_size;      // Bits 0-15: Metadata bytes per sector
+    uint8_t  lba_data_size;      // Bits 16-23: Sector Size as Power of 2 (e.g. 9=512, 12=4096)
+    uint8_t  performance;        // Bits 24-31: Relative Performance
+} __attribute__((packed)) nvme_lbaf_t;
+
+// The Data Structure returned by Identify Namespace (CNS = 0x00)
+typedef struct {
+    uint64_t ns_size;            // 0: Namespace Size (in sectors)
+    uint64_t ns_cap;             // 8: Namespace Capacity
+    uint64_t ns_use;             // 16: Namespace Utilization
+    uint8_t  features;           // 24: Namespace Features
+    uint8_t  num_lba_formats;    // 25: Number of supported formats
+    uint8_t  formatted_lba_size; // 26: FLBAS (Important! Lower 4 bits = Current Format Index)
+    uint8_t  reserved[101];      // 27-127: Reserved
+    nvme_lbaf_t lba_formats[16]; // 128: List of 16 possible formats
+    uint8_t  padding[3712];      // ... Pad to 4096 bytes
+} __attribute__((packed)) nvme_identify_ns_t;
+
 void nvme_setup();

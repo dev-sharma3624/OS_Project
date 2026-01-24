@@ -18,7 +18,13 @@ typedef enum {
     IO_1
 } queue_type_t;
 
+typedef enum {
+    CONTROLLER,
+    NAMESPACE
+} identify_ds_type;
+
 static uint32_t stride; //in bytes
+static uint32_t sector_size; //in bytes
 
 static nvme_state_t nvme_admin_state;
 static nvme_state_t nvme_io_state;
@@ -390,22 +396,33 @@ void print_identify_data(nvme_identify_data_t* data) {
     k_printf("Serial: %s\n", serial);
 }
 
-void nvme_identify_controller(pci_device_info_t* nvme){
+void nvme_command_identify(pci_device_info_t* nvme, identify_ds_type return_type){
+
+    uint32_t nsid, cdw10;
+    switch (return_type){
+
+        case CONTROLLER:
+            nsid = 0;
+            cdw10 = 1;
+            break;
+        
+        case NAMESPACE:
+            nsid = 1;
+            cdw10 = 0;
+    }
 
     //location where driver will write the data in memory
-    nvme_identify_data_t* buffer = (nvme_identify_data_t*) pmm_request_page();
+    uint64_t buffer = (uint64_t) pmm_request_page();
 
     //adding a new request to the sumbission queue
     nvme_sqe_t* cmd = nvme_create_sqe(ADMIN);
 
     cmd->opcode = NVME_OPCODE_IDENTIFY;
     cmd->cid = ++last_cid;
-    cmd->nsid = 0;
-    cmd->prp1 = (uint64_t) buffer;
+    cmd->nsid = nsid;
+    cmd->prp1 = buffer;
 
-    //for identify command, cdw10 (00:01) = 1 returns
-    //the identify controller data structure
-    cmd->cdw10 = 1;
+    cmd->cdw10 = cdw10;
 
     //notifying controller about the new request
     nvme_ring_sq_doorbell(nvme, ADMIN);
@@ -413,9 +430,24 @@ void nvme_identify_controller(pci_device_info_t* nvme){
     //polling until phase bit in status code flips
     nvme_completion_poll(nvme, ADMIN);
 
-    nvme_identify_data_t* buffer_virtual = (nvme_identify_data_t*) P2V(buffer);
+    switch (return_type){
 
-    print_identify_data(buffer_virtual);
+        case CONTROLLER:
+            nvme_identify_data_t* identify_data_virt = (nvme_identify_data_t*) P2V(buffer);
+            print_identify_data(identify_data_virt);
+            break;
+
+        case NAMESPACE:
+            nvme_identify_ns_t* identify_ns_virt = (nvme_identify_ns_t*) P2V(buffer);
+            uint8_t current_idx = identify_ns_virt->formatted_lba_size & 0x0F;
+            uint8_t power_of_2 = identify_ns_virt->lba_formats[current_idx].lba_data_size;
+            sector_size = 1 << power_of_2;
+            k_printf("Sector size (in bytes): %d\n", sector_size);
+            break;
+
+    }
+
+    pmm_free_page(buffer);
 
 }
 
@@ -516,7 +548,8 @@ void nvme_setup(){
 
     print_nvme_logs1(nvme_regs);
 
-    nvme_identify_controller(nvme);
+    nvme_command_identify(nvme, CONTROLLER);
+    nvme_command_identify(nvme, NAMESPACE);
 
     nvme_setup_io_queue_sizes(nvme_regs);
 
