@@ -90,3 +90,5 @@ typedef struct {
 } __attribute__((packed)) nvme_identify_ns_t;
 
 void nvme_setup();
+uint32_t nvme_get_sector_size();
+void nvme_read_sector(uint64_t lba, uint64_t buffer_phy_addr);

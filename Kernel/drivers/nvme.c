@@ -23,6 +23,7 @@ typedef enum {
     NAMESPACE
 } identify_ds_type;
 
+static pci_device_info_t nvme;
 static uint32_t stride; //in bytes
 static uint32_t sector_size; //in bytes
 
@@ -107,16 +108,17 @@ void nvme_disable(nvme_registers_t* nvme_regs){
 
 }
 
-void nvme_fetch_device(pci_device_info_t* nvme){
+void nvme_fetch_device(){
 
     k_printf("Scanning PCI Bus...\n");
+    k_printf("Address of nvme: %p\n", &nvme);
+
+    nvme = pci_scan_for_device(CLASS_MASS_STORAGE, SUBCLASS_NVME);
     
-    *nvme = pci_scan_for_device(CLASS_MASS_STORAGE, SUBCLASS_NVME);
-    
-    if (nvme->found) {
+    if (nvme.found) {
         k_printf("SUCCESS: NVMe Drive Found!\n");
-        k_printf(" - Bus: %d, Slot: %d\n", nvme->bus, nvme->slot);
-        k_printf(" - Physical BAR Address: %p\n", nvme->physical_address);
+        k_printf(" - Bus: %d, Slot: %d\n", nvme.bus, nvme.slot);
+        k_printf(" - Physical BAR Address: %p\n", nvme.physical_address);
     } else {
         k_printf("FAILURE: No NVMe Drive found. Check QEMU flags!\n");
     }
@@ -204,7 +206,7 @@ nvme_sqe_t* nvme_create_sqe(queue_type_t q_type){
 }
 
 //notification to controller about new request in admission submission queue
-void nvme_ring_sq_doorbell(pci_device_info_t* nvme, queue_type_t queue_type){
+void nvme_ring_sq_doorbell(queue_type_t queue_type){
 
     nvme_state_t* current_state;
     uint32_t qid;
@@ -226,12 +228,12 @@ void nvme_ring_sq_doorbell(pci_device_info_t* nvme, queue_type_t queue_type){
     current_state->sq_tail = (current_state->sq_tail + 1) % current_state->sq_size;
 
     uint32_t doorbell_offset = 0x1000 + (2 * qid * stride);
-    volatile uint32_t* sq_tail_doorbell = (uint32_t*) (P2V(nvme->physical_address) + doorbell_offset);
+    volatile uint32_t* sq_tail_doorbell = (uint32_t*) (P2V(nvme.physical_address) + doorbell_offset);
     *sq_tail_doorbell = current_state->sq_tail;
 }
 
 //reading completion queue entry from admin completion queue
-void nvme_completion_poll(pci_device_info_t* nvme, queue_type_t queue_type){
+void nvme_completion_poll(queue_type_t queue_type){
 
     nvme_state_t* current_state;
     uint32_t qid;
@@ -281,12 +283,12 @@ void nvme_completion_poll(pci_device_info_t* nvme, queue_type_t queue_type){
 
     //notifying the device that entries till this index have been processed
     uint32_t doorbell_offset = 0x1000 + (((2 * qid) + 1) * stride);
-    volatile uint32_t* cq_head_doorbell = (uint32_t*) (P2V(nvme->physical_address) + doorbell_offset);
+    volatile uint32_t* cq_head_doorbell = (uint32_t*) (P2V(nvme.physical_address) + doorbell_offset);
     *cq_head_doorbell = current_state->cq_head;
     
 }
 
-void nvme_setup_io_cq(pci_device_info_t* nvme){
+void nvme_setup_io_cq(){
 
     //gettin physical memory where submission data structure will be written by the driver
     uint64_t io_cq_phy_addr = (uint64_t) pmm_request_page();
@@ -305,9 +307,9 @@ void nvme_setup_io_cq(pci_device_info_t* nvme){
     cmd->cdw10 = (queue_size << 16) | 1;
     cmd->cdw11 = 1; //physically contiguous block of memory
 
-    nvme_ring_sq_doorbell(nvme, ADMIN);
+    nvme_ring_sq_doorbell(ADMIN);
 
-    nvme_completion_poll(nvme, ADMIN);
+    nvme_completion_poll(ADMIN);
 
     nvme_io_state.cq_virtual_addr = P2V(io_cq_phy_addr);
     nvme_io_state.cq_head = 0;
@@ -318,7 +320,7 @@ void nvme_setup_io_cq(pci_device_info_t* nvme){
 
 }
 
-void nvme_setup_io_sq(pci_device_info_t* nvme) {
+void nvme_setup_io_sq() {
 
     //getting physical memory where completion data structure will be written by the controller
     uint64_t io_sq_phy_addr = (uint64_t) pmm_request_page();
@@ -342,8 +344,8 @@ void nvme_setup_io_sq(pci_device_info_t* nvme) {
     uint16_t completion_queue_id = 1;
     cmd->cdw11 = (completion_queue_id << 16) | 1;
 
-    nvme_ring_sq_doorbell(nvme, ADMIN);
-    nvme_completion_poll(nvme, ADMIN);
+    nvme_ring_sq_doorbell(ADMIN);
+    nvme_completion_poll(ADMIN);
     
     nvme_io_state.sq_virtual_addr = P2V(io_sq_phy_addr);
     nvme_io_state.sq_tail = 0;
@@ -396,7 +398,7 @@ void print_identify_data(nvme_identify_data_t* data) {
     k_printf("Serial: %s\n", serial);
 }
 
-void nvme_command_identify(pci_device_info_t* nvme, identify_ds_type return_type){
+void nvme_command_identify(identify_ds_type return_type){
 
     uint32_t nsid, cdw10;
     switch (return_type){
@@ -425,10 +427,10 @@ void nvme_command_identify(pci_device_info_t* nvme, identify_ds_type return_type
     cmd->cdw10 = cdw10;
 
     //notifying controller about the new request
-    nvme_ring_sq_doorbell(nvme, ADMIN);
+    nvme_ring_sq_doorbell(ADMIN);
 
     //polling until phase bit in status code flips
-    nvme_completion_poll(nvme, ADMIN);
+    nvme_completion_poll(ADMIN);
 
     switch (return_type){
 
@@ -451,7 +453,7 @@ void nvme_command_identify(pci_device_info_t* nvme, identify_ds_type return_type
 
 }
 
-void nvme_read_sector(pci_device_info_t* nvme, uint64_t lba, uint64_t buffer_phy_addr){
+void nvme_read_sector(uint64_t lba, uint64_t buffer_phy_addr){
 
     nvme_sqe_t* cmd = nvme_create_sqe(IO_1);
 
@@ -463,12 +465,12 @@ void nvme_read_sector(pci_device_info_t* nvme, uint64_t lba, uint64_t buffer_phy
     cmd->cdw11 = lba >> 32;
     cmd->cdw12 = 0;
 
-    nvme_ring_sq_doorbell(nvme, IO_1);
-    nvme_completion_poll(nvme, IO_1);
+    nvme_ring_sq_doorbell(IO_1);
+    nvme_completion_poll(IO_1);
 
 }
 
-void nvme_write_sector(pci_device_info_t* nvme, uint64_t lba, uint64_t buffer_phy_addr){
+void nvme_write_sector(uint64_t lba, uint64_t buffer_phy_addr){
 
     //******************************************************************
     //******************************************************************
@@ -492,12 +494,12 @@ void nvme_write_sector(pci_device_info_t* nvme, uint64_t lba, uint64_t buffer_ph
     cmd->cdw11 = lba >> 32;
     cmd->cdw12 = 0;
 
-    nvme_ring_sq_doorbell(nvme, IO_1);
+    nvme_ring_sq_doorbell(IO_1);
 
-    nvme_completion_poll(nvme, IO_1);
+    nvme_completion_poll(IO_1);
 }
 
-void nvme_test_rw(pci_device_info_t* nvme) {
+void nvme_test_rw() {
 
     k_printf("\n[TEST] Starting NVMe Read/Write Test...\n");
 
@@ -511,12 +513,12 @@ void nvme_test_rw(pci_device_info_t* nvme) {
     virt_addr[11] = 0xDEADBEEF;
 
     k_printf("[TEST] Writing pattern to LBA 5...\n");
-    nvme_write_sector(nvme, 5, phys_addr);
+    nvme_write_sector(5, phys_addr);
     
     memset(virt_addr, 0, 4096);
     
     k_printf("[TEST] Reading back from LBA 5...\n");
-    nvme_read_sector(nvme, 5, phys_addr);
+    nvme_read_sector(5, phys_addr);
 
     if (k_strcmp((char*)virt_addr, msg) == 0 && virt_addr[10] == 0xCAFEBABE) {
         k_printf("[SUCCESS] Data Match! NVMe Driver is OPERATIONAL.\n");
@@ -526,15 +528,15 @@ void nvme_test_rw(pci_device_info_t* nvme) {
         k_printf("          Expected: %s\n", msg);
         k_printf("          Got:      %s\n", (char*)virt_addr);
     }
+
+    pmm_free_page(phys_addr);
 }
 
 void nvme_setup(){
-    
-    pci_device_info_t* nvme;
 
-    nvme_fetch_device(nvme);
+    nvme_fetch_device();
 
-    uint64_t nvme_virt_addr = nvme_map_pages(nvme->physical_address);
+    uint64_t nvme_virt_addr = nvme_map_pages(nvme.physical_address);
 
     nvme_registers_t* nvme_regs = (nvme_registers_t*)nvme_virt_addr;
 
@@ -548,8 +550,8 @@ void nvme_setup(){
 
     print_nvme_logs1(nvme_regs);
 
-    nvme_command_identify(nvme, CONTROLLER);
-    nvme_command_identify(nvme, NAMESPACE);
+    nvme_command_identify(CONTROLLER);
+    nvme_command_identify(NAMESPACE);
 
     nvme_setup_io_queue_sizes(nvme_regs);
 
@@ -557,4 +559,8 @@ void nvme_setup(){
     nvme_setup_io_sq(nvme);
 
     nvme_test_rw(nvme);
+}
+
+uint32_t nvme_get_sector_size(){
+    return sector_size;
 }
