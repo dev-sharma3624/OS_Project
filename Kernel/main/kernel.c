@@ -18,6 +18,7 @@
 #include <drivers/pci.h>
 #include <drivers/nvme.h>
 #include <file_system/gpt.h>
+#include <file_system/fat32.h>
 
 #define MAX_COMMAND_BUFFER 256
 char command_buffer[MAX_COMMAND_BUFFER];
@@ -377,6 +378,7 @@ void kernel_start(boot_info_t* boot_info_recieved){
 
     nvme_setup();
     gpt_scan_partition_table(1);
+    fat32_init(2048);
 
     while(1);
 
