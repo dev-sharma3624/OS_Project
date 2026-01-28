@@ -1,4 +1,4 @@
-
+#include <typedefs.h>
 
 char* k_strcpy(char* dest, const char* src) {
     char* original_dest = dest;
@@ -35,4 +35,10 @@ int k_strncmp(const char* s1, const char* s2, int n) {
     if (n == 0) return 0;
 
     return *(const unsigned char*)s1 - *(const unsigned char*)s2;
+}
+
+int k_strlen(char* s) {
+    int len = 0;
+    while( s[len] != '\0'){ len++; }
+    return len;
 }

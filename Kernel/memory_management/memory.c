@@ -61,3 +61,15 @@ void memset(void* start_address, uint64_t value, size_t limit){
         start_address_uint8t_pointer[i] = value;
     }
 }
+
+
+void* memcpy(void* dest, const void* src, size_t n) {
+    char* d = (char*)dest;
+    const char* s = (const char*)src;
+
+    for (size_t i = 0; i < n; i++) {
+        d[i] = s[i];
+    }
+
+    return dest;
+}
