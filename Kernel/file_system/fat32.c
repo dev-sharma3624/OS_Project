@@ -5,9 +5,13 @@
 #include <drivers/nvme.h>
 #include <libs/k_string.h>
 #include <libs/k_printf.h>
+#include <drivers/font_renderer.h>
 
+uint16_t bytes_per_sector;
 uint32_t sectors_per_cluster;
 uint32_t data_start_lba;
+uint64_t fat_start_lba;
+uint64_t fat_size_in_sectors;
 
 void fat32_read_bpb(uint64_t partition_start_lba){
 
@@ -57,6 +61,9 @@ void fat32_read_bpb(uint64_t partition_start_lba){
     // Calculate Data Area Start
     uint32_t fat_size = bpb->fat_count * bpb->sectors_per_fat_32;
     data_start_lba = partition_start_lba + bpb->reserved_sectors + fat_size;
+    fat_start_lba = partition_start_lba + bpb->reserved_sectors;
+    bytes_per_sector = bpb->bytes_per_sector;
+    fat_size_in_sectors = bpb->sectors_per_fat_32;
 
     k_printf("FAT32: Data Area starts at LBA %d\n", data_start_lba);
 
@@ -167,6 +174,170 @@ void fat32_read_file(fat32_directory_entry_t* directory, char* file_name){
     pmm_free_page(buffer_phys);
 }
 
+void fat32_set_fat_entry(uint32_t cluster, uint32_t value) {
+
+    // calculate the location
+    uint32_t fat_offset = cluster * 4; //each entry is 4 bytes
+    uint32_t fat_sector = fat_start_lba + (fat_offset / bytes_per_sector);
+    uint32_t ent_offset = fat_offset % bytes_per_sector;
+
+    // loading the sector
+    uint64_t buffer_phys = (uint64_t)pmm_request_page();
+    uint64_t buffer_virt = P2V(buffer_phys);
+    nvme_read_sector(fat_sector, buffer_phys);
+
+    // pointing to that specific entry in the fat
+    uint32_t* table_entry = (uint32_t*)(buffer_virt + ent_offset);
+    
+    // We want to preserve the top 4 bits (Reserved) just in case, 
+    // but usually setting it to 0x0FFFFFFF for EOF is fine.
+    *table_entry = value; 
+
+    // saving it back to disk
+    nvme_write_sector(fat_sector, buffer_phys);
+
+    pmm_free_page(buffer_phys);
+}
+
+void fat32_read_fat_sector(uint32_t sector_offset, uint64_t buffer_phys) {
+    uint64_t target_lba = fat_start_lba + sector_offset;
+    nvme_read_sector(target_lba, buffer_phys);
+}
+
+int fat32_add_directory_entry(char* filename, uint32_t cluster, uint32_t size) {
+
+    uint64_t buffer_phys = (uint64_t)pmm_request_page();
+    uint64_t buffer_virt = P2V(buffer_phys);
+    
+    // reading the root directory
+    // only 1 sector
+    // in future might need to read multiple sectors
+    nvme_read_sector(data_start_lba, buffer_phys);
+
+    fat32_directory_entry_t* directory = (fat32_directory_entry_t*)buffer_virt;
+    int found_slot = -1;
+
+    // find an empty slot
+    for (int i = 0; i < 16; i++) {
+        if (directory[i].name[0] == 0x00 || directory[i].name[0] == 0xE5) { //0x00 is empty location and 0xE5 is deleted file
+            found_slot = i;
+            break;
+        }
+    }
+
+    if (found_slot == -1) {
+        k_printf("Error: Root Directory is full!\n");
+        pmm_free_page(buffer_phys);
+        return -1;
+    }
+
+    // copying file name to the directory address
+    memcpy(directory[found_slot].name, filename, 8);
+    
+    // 0x20 is Archive/File
+    directory[found_slot].attributes = 0x20;
+    
+    // setting cluster fields
+    directory[found_slot].cluster_high = (uint16_t)((cluster >> 16) & 0xFFFF);
+    directory[found_slot].cluster_low  = (uint16_t)(cluster & 0xFFFF);
+    
+    // file size
+    directory[found_slot].file_size = size;
+
+    // writing back to the drive
+    nvme_write_sector(data_start_lba, buffer_phys);
+
+    pmm_free_page(buffer_phys);
+    return 0;
+}
+
+uint32_t fat32_find_free_cluster() {
+    
+    uint64_t buffer_phys = (uint64_t)pmm_request_page();
+    uint64_t buffer_virt = P2V(buffer_phys);
+    uint32_t* fat_table = (uint32_t*)buffer_virt;
+
+    int entries_per_sector = bytes_per_sector / 4; //each entry is 4 bytes
+
+    // loop to scan scan the fat table sector wise
+    for (int sector_idx = 0; sector_idx < fat_size_in_sectors; sector_idx++) {
+        
+        // reading the sector
+        fat32_read_fat_sector(sector_idx, buffer_phys);
+
+        // loop to read each entry in every sector
+        for (int i = 0; i < entries_per_sector; i++) {
+            
+            // this is not address/location of cluster but the index inside the fat that has that cluster information
+            uint32_t actual_cluster = (sector_idx * entries_per_sector) + i;
+
+            // skip Cluster 0 and 1 (Reserved)
+            if (actual_cluster < 2) continue;
+
+            // check if empty
+            if ((fat_table[i] & 0x0FFFFFFF) == 0x00000000) {
+                pmm_free_page(buffer_phys);
+                return actual_cluster;
+            }
+        }
+    }
+
+    k_printf("Error: No free clusters found in first 10 FAT sectors.\n");
+    pmm_free_page(buffer_phys);
+    return 0;
+}
+
+void fat32_create_file(char* filename, char* content, int size) {
+    
+    // finding an empty cluster by looking inside the fat table
+    uint32_t free_cluster = fat32_find_free_cluster();
+    if (free_cluster == 0) return;
+
+    k_printf("Allocated Cluster %d for file.\n", free_cluster);
+
+    // marking it as used inside fat
+    fat32_set_fat_entry(free_cluster, 0x0FFFFFFF);
+
+    // calculating lba using that cluster value
+    uint64_t lba = data_start_lba + (free_cluster - 2) * sectors_per_cluster;
+    
+    // writing it to the drive
+    nvme_write_sector(lba, V2P(content));
+
+
+    // update the directory
+    fat32_add_directory_entry(filename, free_cluster, size);
+    
+    k_printf("File %s written successfully.\n", filename);
+}
+
+void fat32_test_write() {
+    k_printf("\n--- STARTING FAT32 WRITE TEST ---\n");
+
+    char* filename = "TEST    TXT"; 
+    char* content = "This is a message from your OS kernel!\nIt proves that write support works.";
+    int size = k_strlen(content);
+
+    k_printf("Attempting to write file '%s' (%d bytes)...\n", filename, size);
+    
+    uint64_t buf_phys = (uint64_t)pmm_request_page();
+    uint64_t buf_virt = P2V(buf_phys);
+    memcpy((void*)buf_virt, content, size);
+
+    fat32_create_file(filename, (char*)buf_virt, size);
+
+    pmm_free_page(buf_phys);
+
+    k_printf("Write done. Attempting to read back...\n");
+    
+    fat32_directory_entry_t* root_dir;
+    fat32_get_directory(&root_dir, data_start_lba);
+    
+    fat32_read_file(root_dir, filename);
+
+    k_printf("--- TEST COMPLETE ---\n");
+}
+
 void test_impl(){
 
     fat32_directory_entry_t* root_directory_entry;
@@ -174,7 +345,7 @@ void test_impl(){
 
     fat32_list_all_files(root_directory_entry);
 
-    char* file_name = "DATA    ";
+    char* file_name = "TEST    ";
 
     fat32_read_file(root_directory_entry, file_name);
 
@@ -185,5 +356,7 @@ void test_impl(){
 
 void fat32_init(uint64_t partition_start_lba) {
     fat32_read_bpb(partition_start_lba);
+    font_renderer_clear_screen();
     test_impl();
+    // fat32_test_write();
 }
