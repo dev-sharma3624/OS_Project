@@ -131,6 +131,12 @@ int fat32_find_file(fat32_directory_entry_t* directory, char* file_name){
 
 }
 
+
+void fat32_read_fat_sector(uint32_t sector_offset, uint64_t buffer_phys) {
+    uint64_t target_lba = fat_start_lba + sector_offset;
+    nvme_read_sector(target_lba, buffer_phys);
+}
+
 void fat32_read_file(fat32_directory_entry_t* directory, char* file_name){
 
     uint64_t buffer_phys = (uint64_t)pmm_request_page();
@@ -151,24 +157,66 @@ void fat32_read_file(fat32_directory_entry_t* directory, char* file_name){
     uint32_t cluster = ((uint32_t)directory[file_offset].cluster_high << 16) | 
                     (uint32_t)directory[file_offset].cluster_low;
 
-    // 3. Convert Cluster -> LBA
-    uint64_t offset_sectors = (cluster - 2) * sectors_per_cluster;
-    uint64_t file_lba = data_start_lba + offset_sectors;
+    uint32_t bytes_read = 0;
     uint32_t file_size = directory[file_offset].file_size;
-    k_printf("  -> File starts at Cluster %d (LBA %d)\n", cluster, file_lba);
 
-    // 4. Read the content
-    // We reuse buffer_phys/virt for simplicity, overwriting the directory list
-    nvme_read_sector(file_lba, buffer_phys);
-
-    // 5. Print it!
     k_printf("  -> Content: \"");
-    char* content = (char*)buffer_virt;
-    
-    // Print only the file size amount of characters
-    for(int b=0; b < file_size; b++) {
-        k_printf("%c", content[b]);
+
+    while(bytes_read < file_size){
+
+        // 3. Convert Cluster -> LBA
+        uint64_t offset_sectors = (cluster - 2) * sectors_per_cluster;
+        uint64_t file_start_lba = data_start_lba + offset_sectors;
+
+        for(int i = 0; i < sectors_per_cluster; i++){
+            uint64_t read_lba = file_start_lba + i;
+            nvme_read_sector(read_lba, buffer_phys);
+
+
+            char* content = (char*)buffer_virt;
+            int loop_length;
+            if((file_size - bytes_read) <= nvme_get_sector_size()){
+                loop_length = (file_size - bytes_read);
+            }else{
+                loop_length = nvme_get_sector_size();
+            }
+            for(int b=0; b < loop_length; b++) {
+                k_printf("%c", content[b]);
+            }
+
+            bytes_read += nvme_get_sector_size();
+            if(bytes_read >= file_size){
+                break;
+            }
+        }
+
+        // calculate the location
+        uint32_t fat_bytes_offset = cluster * 4; //each entry is 4 bytes
+        uint32_t fat_sector_offset = fat_bytes_offset / bytes_per_sector;
+        uint32_t ent_offset = fat_bytes_offset % bytes_per_sector;
+
+        uint64_t fat_buffer_phys = (uint64_t)pmm_request_page();
+        uint64_t fat_buffer_virt = P2V(fat_buffer_phys);
+        memset((void*)fat_buffer_virt, 0, 4096);
+
+        fat32_read_fat_sector(fat_sector_offset, fat_buffer_phys);
+
+        uint32_t* table_entry = (uint32_t*)(fat_buffer_virt + ent_offset);
+
+        if(*table_entry == 0x0FFFFFFF){
+            pmm_free_page(fat_buffer_phys);
+            break;
+        }
+
+        if(*table_entry >= 0x00000002 && *table_entry <= 0x0FFFFFEF){
+            cluster = *table_entry;
+        }
+
+        pmm_free_page(fat_buffer_phys);
+
     }
+    
+
     k_printf("\"\n");
 
     pmm_free_page(buffer_phys);
@@ -197,11 +245,6 @@ void fat32_set_fat_entry(uint32_t cluster, uint32_t value) {
     nvme_write_sector(fat_sector, buffer_phys);
 
     pmm_free_page(buffer_phys);
-}
-
-void fat32_read_fat_sector(uint32_t sector_offset, uint64_t buffer_phys) {
-    uint64_t target_lba = fat_start_lba + sector_offset;
-    nvme_read_sector(target_lba, buffer_phys);
 }
 
 int fat32_add_directory_entry(char* filename, uint32_t cluster, uint32_t size) {
@@ -288,25 +331,59 @@ uint32_t fat32_find_free_cluster() {
 }
 
 void fat32_create_file(char* filename, char* content, int size) {
-    
-    // finding an empty cluster by looking inside the fat table
-    uint32_t free_cluster = fat32_find_free_cluster();
-    if (free_cluster == 0) return;
 
-    k_printf("Allocated Cluster %d for file.\n", free_cluster);
+    uint64_t cluster_size = sectors_per_cluster * bytes_per_sector;
+    uint64_t required_clusters = (size + cluster_size - 1) / cluster_size;
+
+    // finding an empty cluster by looking inside the fat table
+    uint32_t prev_free_cluster = fat32_find_free_cluster();
+    if (prev_free_cluster == 0) return;
+
+    k_printf("Allocated Cluster %d for file.\n", prev_free_cluster);
 
     // marking it as used inside fat
-    fat32_set_fat_entry(free_cluster, 0x0FFFFFFF);
+    fat32_set_fat_entry(prev_free_cluster, 0x0FFFFFFF);
 
     // calculating lba using that cluster value
-    uint64_t lba = data_start_lba + (free_cluster - 2) * sectors_per_cluster;
-    
-    // writing it to the drive
-    nvme_write_sector(lba, V2P(content));
+    uint64_t lba = data_start_lba + (prev_free_cluster - 2) * sectors_per_cluster;
 
+    for(int s = 0; s < cluster_size / nvme_get_sector_size(); s++) {
+        nvme_write_sector(
+            lba + s, 
+            V2P(content + s * nvme_get_sector_size()) // Offset for sector
+        );
+    }
 
     // update the directory
-    fat32_add_directory_entry(filename, free_cluster, size);
+    fat32_add_directory_entry(filename, prev_free_cluster, size);
+
+    for(int i = 1; i < required_clusters; i++){
+
+        // finding an empty cluster by looking inside the fat table
+        uint32_t next_free_cluster = fat32_find_free_cluster();
+        if (next_free_cluster == 0) return;
+
+        k_printf("Allocated Cluster %d for file.\n", next_free_cluster);
+
+        // marking it as used inside fat
+        fat32_set_fat_entry(prev_free_cluster, next_free_cluster);
+        fat32_set_fat_entry(next_free_cluster, 0x0FFFFFFF);
+
+        // calculating lba using that cluster value
+        uint64_t lba = data_start_lba + (next_free_cluster - 2) * sectors_per_cluster;
+
+        char* current_buffer_pos = content + (i * cluster_size);
+
+        for(int s = 0; s < cluster_size / nvme_get_sector_size(); s++) {
+            nvme_write_sector(
+                lba + s, 
+                V2P(current_buffer_pos + s * nvme_get_sector_size()) // Offset for sector
+            );
+        }
+
+        prev_free_cluster = next_free_cluster;
+
+    }
     
     k_printf("File %s written successfully.\n", filename);
 }
