@@ -29,7 +29,7 @@ static uint32_t sector_size; //in bytes
 
 static nvme_state_t nvme_admin_state;
 static nvme_state_t nvme_io_state;
-static uint32_t last_cid;
+static uint16_t last_cid;
 
 void print_nvme_logs1(nvme_registers_t* nvme_regs){
 
@@ -132,8 +132,8 @@ void nvme_setup_admin_sc_queues(nvme_registers_t* nvme_regs){
     uint64_t* completion_queue = (uint64_t*) pmm_request_page();
 
     //clearing the pages
-    memset((void*) P2V(submission_queue), 0, 4095);
-    memset((void*) P2V(completion_queue), 0, 4095);
+    memset((void*) P2V(submission_queue), 0, 4096);
+    memset((void*) P2V(completion_queue), 0, 4096);
 
 
 
@@ -175,8 +175,8 @@ void nvme_setup_admin_sc_queues(nvme_registers_t* nvme_regs){
     nvme_admin_state.cq_virtual_addr = (uint64_t*) P2V(completion_queue);
     nvme_admin_state.sq_tail = 0;
     nvme_admin_state.cq_head = 0;
-    nvme_admin_state.sq_size = asqs;
-    nvme_admin_state.cq_size = acqs;
+    nvme_admin_state.sq_size = asqs + 1;
+    nvme_admin_state.cq_size = acqs + 1;
     nvme_admin_state.phase = 1;
 
 }
@@ -254,8 +254,8 @@ void nvme_completion_poll(queue_type_t queue_type){
 
     //creating new completion queue entry to read from
     uint32_t cq_head = current_state->cq_head;
-    nvme_cqe_t* cq = (nvme_cqe_t*) current_state->cq_virtual_addr;
-    nvme_cqe_t* cqe = &cq[cq_head];
+    volatile nvme_cqe_t* cq = (volatile nvme_cqe_t*) current_state->cq_virtual_addr;
+    volatile nvme_cqe_t* cqe = &cq[cq_head];
     uint16_t current_phase = current_state->phase;
 
     while(1){
@@ -271,7 +271,7 @@ void nvme_completion_poll(queue_type_t queue_type){
 
     uint16_t status_code = cqe->status >> 1;
     if(status_code != 0){
-        k_printf("NVMe Error! Status: %p\n", status_code);
+        k_printf("NVMe Error! Status: %p, Cid: %d, SQ head: %d, CQ head: %d, SQ ID: %d\n", status_code, cqe->cid, cqe->sq_head, current_state->cq_head, cqe->sq_id);
     }
 
     //incrementin completion queue head
@@ -313,7 +313,7 @@ void nvme_setup_io_cq(){
 
     nvme_io_state.cq_virtual_addr = P2V(io_cq_phy_addr);
     nvme_io_state.cq_head = 0;
-    nvme_io_state.cq_size = 255;
+    nvme_io_state.cq_size = 256;
     nvme_io_state.phase = 1;
 
     k_printf("SUCCESS: I/O Completion Queue 1 Created!\n");
@@ -349,7 +349,7 @@ void nvme_setup_io_sq() {
     
     nvme_io_state.sq_virtual_addr = P2V(io_sq_phy_addr);
     nvme_io_state.sq_tail = 0;
-    nvme_io_state.sq_size = 63;
+    nvme_io_state.sq_size = 64;
     
     k_printf("SUCCESS: I/O Submission Queue 1 Created!\n");
 }
@@ -558,7 +558,7 @@ void nvme_setup(){
     nvme_setup_io_cq(nvme);
     nvme_setup_io_sq(nvme);
 
-    nvme_test_rw(nvme);
+    // nvme_test_rw(nvme);
 }
 
 uint32_t nvme_get_sector_size(){
