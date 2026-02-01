@@ -14,7 +14,7 @@ uint64_t data_start_lba;
 uint64_t fat_start_lba;
 uint64_t fat_size_in_sectors;
 
-#define EOF 0x0FFFFFFF
+#define EOF 0x0FFFFFF8
 #define FILE_ATTR 0x20
 #define DIR_ATTR 0x10
 
@@ -124,7 +124,7 @@ uint32_t fat32_find_next_cluster(uint32_t prev_cluster){
 
     uint32_t* table_entry = (uint32_t*)(buffer_virt + ent_offset);
 
-    uint32_t next_cluster = *table_entry;
+    uint32_t next_cluster = *table_entry & 0x0FFFFFFF;
     pmm_free_page(buffer_phys);
     return next_cluster;
 
@@ -140,6 +140,7 @@ void fat32_set_fat_entry(uint32_t cluster, uint32_t value) {
     // loading the sector
     uint64_t buffer_phys = (uint64_t)pmm_request_page();
     uint64_t buffer_virt = P2V(buffer_phys);
+    k_printf("set fat entry read\n");
     fat32_read_fat_sector(fat_sector_offset, buffer_phys);
 
     // pointing to that specific entry in the fat
@@ -149,8 +150,10 @@ void fat32_set_fat_entry(uint32_t cluster, uint32_t value) {
     // but usually setting it to 0x0FFFFFFF for EOF is fine.
     *table_entry = value; 
 
+    k_printf("set fat entry write\n");
     // saving it back to disk
     nvme_write_sector(fat_start_lba + fat_sector_offset, buffer_phys);
+    k_printf("set fat entry write end\n");
 
     pmm_free_page(buffer_phys);
 }
@@ -234,17 +237,18 @@ int fat32_match_file(fat32_directory_entry_t* directory, char* file_name, int n)
 }
 
 //returns a 64-bit aggregate of cluster(lower 32 bits) and file_size(upper 32 bits), returns 0 if file not found
-uint64_t fat32_find_file(uint32_t file_start_cluster, char* file_name){
+uint64_t fat32_find_file(uint32_t dir_loc_cluster, char* file_name){
+    k_printf("find file\n");
 
     //the first lba at which file chain begins in data region
-    uint32_t file_sector_offset = FILE_SECTOR_OFFSET(file_start_cluster);
-    uint64_t file_start_lba = FILE_START_LBA(file_sector_offset);
+    uint32_t dir_sector_offset = FILE_SECTOR_OFFSET(dir_loc_cluster);
+    uint64_t dir_start_lba = FILE_START_LBA(dir_sector_offset);
 
     uint64_t buffer_phys = (uint64_t)pmm_request_page();
     uint64_t buffer_virt = P2V(buffer_phys);
     memset((void*)buffer_virt, 0, 4096);
 
-    uint32_t current_cluster = file_start_cluster;
+    uint32_t current_cluster = dir_loc_cluster;
 
     do {
 
@@ -252,7 +256,7 @@ uint64_t fat32_find_file(uint32_t file_start_cluster, char* file_name){
         for (uint32_t i = 0; i < sectors_per_cluster; i++){
 
             //adjusting lba according to the sector number
-            uint64_t lba = file_start_lba + i;
+            uint64_t lba = dir_start_lba + i;
             nvme_read_sector(lba, buffer_phys);
 
             fat32_directory_entry_t* directory = (fat32_directory_entry_t*) buffer_virt;
@@ -274,16 +278,18 @@ uint64_t fat32_find_file(uint32_t file_start_cluster, char* file_name){
         //after reading sectors of one cluster, moving to next cluster in case file is saved in multiple clusters
         //returns valid cluster number if there is cluster ahead and returns EOF if it is the end cluster of current directory
         current_cluster = fat32_find_next_cluster(current_cluster);
-        if(current_cluster == EOF){
+        if(current_cluster >= EOF){
             break;
         }
         //calcualting the lba for the next cluster
-        file_sector_offset = FILE_SECTOR_OFFSET(current_cluster);
-        file_start_lba = FILE_START_LBA(file_sector_offset);
+        dir_sector_offset = FILE_SECTOR_OFFSET(current_cluster);
+        dir_start_lba = FILE_START_LBA(dir_sector_offset);
 
     } while (true);
 
     pmm_free_page(buffer_phys);
+    
+    k_printf("find file end\n");
     return 0;
 
 }
@@ -464,7 +470,7 @@ int fat32_add_directory_entry(char* filename, uint32_t directory_loc_cluster, ui
         //after reading sectors of one cluster, moving to next cluster in case file is saved in multiple clusters
         //returns valid cluster number if there is cluster ahead and returns EOF if it is the end cluster of current directory
         dir_cluster= fat32_find_next_cluster(dir_cluster);
-        if(dir_cluster == EOF){
+        if(dir_cluster >= EOF){
             break;
         }
         //calcualting the lba for the next cluster
@@ -511,21 +517,29 @@ void fat32_create_file(char* filename, char* content, int size, uint32_t dir_loc
     k_printf("Allocated Cluster %d for file.\n", initial_cluster);
 
     // marking it as used inside fat
-    fat32_set_fat_entry(initial_cluster, 0x0FFFFFFF);
+    fat32_set_fat_entry(initial_cluster, EOF);
 
     // calculating lba using that cluster value
     uint32_t sector_offset = FILE_SECTOR_OFFSET(initial_cluster);
     uint64_t lba = FILE_START_LBA(sector_offset);
 
-    for(int s = 0; s < sectors_per_cluster; s++) {
+    k_printf("sectors per cluster: %d\n", sectors_per_cluster);
+    k_printf("nvme sector size : %d\n", nvme_get_sector_size());
+    uint32_t required_sectors = (size / bytes_per_sector) + 1;
+    required_sectors = (required_sectors < sectors_per_cluster) ? required_sectors : sectors_per_cluster;
+    for(int s = 0; s < required_sectors; s++) {
+        k_printf("calculated lba: %d\n", lba + s);
+        k_printf("calculated address: %p\n", V2P(content + (s *bytes_per_sector)));
         nvme_write_sector(
             lba + s,
             V2P(content + (s * bytes_per_sector)) // Offset for sector
         );
     }
+    k_printf("writing first cluster end\n");
 
     uint32_t previous_cluster = initial_cluster;
 
+    k_printf("writing further clusters\n");
     for(int i = 1; i < required_clusters; i++){
 
         // finding an empty cluster by looking inside the fat table
@@ -536,7 +550,7 @@ void fat32_create_file(char* filename, char* content, int size, uint32_t dir_loc
 
         // marking it as used inside fat
         fat32_set_fat_entry(previous_cluster, next_free_cluster);
-        fat32_set_fat_entry(next_free_cluster, 0x0FFFFFFF);
+        fat32_set_fat_entry(next_free_cluster, EOF);
 
         // calculating lba using that cluster value
         sector_offset = FILE_SECTOR_OFFSET(next_free_cluster);
@@ -554,6 +568,7 @@ void fat32_create_file(char* filename, char* content, int size, uint32_t dir_loc
         previous_cluster = next_free_cluster;
 
     }
+    k_printf("writing further clusters end\n");
 
     // update the directory
     fat32_add_directory_entry(filename, dir_loc_cluster, initial_cluster, size, attr);
@@ -562,6 +577,8 @@ void fat32_create_file(char* filename, char* content, int size, uint32_t dir_loc
 }
 
 void fat32_create_dir(char* dirName, uint32_t parent_dir_cluster){
+
+    k_printf("create dir\n");
 
     uint64_t existing_file = fat32_find_file(parent_dir_cluster, dirName);
 
@@ -600,11 +617,17 @@ void fat32_test_write() {
     
     uint64_t buf_phys = (uint64_t)pmm_request_page();
     uint64_t buf_virt = P2V(buf_phys);
+    memset(buf_virt, 0, 4096);
     memcpy((void*)buf_virt, content, size);
-
-    k_printf("bp 1\n");
+    k_printf("buffer starts at: %p\n", buf_phys);
+    k_printf("bp1\n");
     fat32_create_file(filename, (char*)buf_virt, size, 2, FILE_ATTR);
-    k_printf("bp 2\n");
+    k_printf("bp2\n");
+    fat32_create_dir("dir1       ", 2);
+    k_printf("bp3\n");
+    uint32_t cluster = (uint32_t) (fat32_find_file(2, "dir1       ") & 0xFFFFFFFF);
+    k_printf("bp4\n");
+    fat32_create_file("TEST1   TXT", (char*)buf_virt, size, cluster, FILE_ATTR);
 
     pmm_free_page(buf_phys);
 
@@ -627,6 +650,6 @@ void test_impl(){
 void fat32_init(uint64_t partition_start_lba) {
     fat32_read_bpb(partition_start_lba);
     font_renderer_clear_screen();
-    test_impl();
-    // fat32_test_write();
+    // test_impl();
+    fat32_test_write();
 }
