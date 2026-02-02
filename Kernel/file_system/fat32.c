@@ -651,5 +651,6 @@ void fat32_init(uint64_t partition_start_lba) {
     fat32_read_bpb(partition_start_lba);
     font_renderer_clear_screen();
     // test_impl();
-    fat32_test_write();
+    // fat32_test_write();
+    // font_renderer_clear_screen();
 }

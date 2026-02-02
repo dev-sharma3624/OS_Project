@@ -15,7 +15,8 @@ enum SYSTEM_CALL_NOS{
     SYS_PRINT,
     SYS_READ,
     SYS_EXIT,
-    SYS_SBRK
+    SYS_SBRK,
+    SYS_LS
 };
 
 void syscall_dispatcher(trap_frame_t* frame){
@@ -77,6 +78,12 @@ void syscall_dispatcher(trap_frame_t* frame){
 
             current_task->heap_end = new_break;
             frame->rax = old_break;
+            break;
+
+        case SYS_LS:
+            k_printf("\nfat32 call comes here\n");
+            
+            frame->rax = 0;
             break;
 
         default:

@@ -20,6 +20,8 @@
 #include <file_system/gpt.h>
 #include <file_system/fat32.h>
 
+extern void user_shell_main();
+
 #define MAX_COMMAND_BUFFER 256
 char command_buffer[MAX_COMMAND_BUFFER];
 int buffer_position = 0;
@@ -57,68 +59,7 @@ void kernel_print_memory_info() {
     k_printf("-------------------------\n");
 }
 
-void sys_read(char* buffer) {
-    asm volatile (
-        "mov $1, %%rax\n"
-        "mov %0, %%rdi\n"
-        "int $0x80\n"
-        :
-        : "r"(buffer)
-        : "rax", "rdi"
-    );
-}
-
-void sys_print(char* msg){
-    asm volatile (
-        "mov $0, %%rax\n"
-        "mov %0, %%rbx\n"
-        "int $0x80\n"
-        :
-        : "r"(msg)
-        : "rax", "rbx"
-    );
-}
-
-void sys_exit(int code) {
-    asm volatile (
-        "mov $2, %%rax\n"
-        "mov %0, %%rdi\n"
-        "int $0x80\n"
-        :
-        : "r"((uint64_t)code)
-        : "rax", "rdi"
-    );
-    while(1) {} 
-}
-
-void* sys_sbrk(int64_t increment) {
-    void* ret;
-    asm volatile (
-        "mov $3, %%rax\n"
-        "mov %1, %%rdi\n"
-        "int $0x80\n"
-        "mov %%rax, %0\n"
-        : "=r"(ret)
-        : "r"(increment)
-        : "rax", "rdi"
-    );
-    return ret;
-}
-
-void* malloc(uint64_t size) {
-    if (size == 0) return 0;
-    
-    void* ptr = sys_sbrk(size);
-    
-    // Check if sbrk failed (returned -1)
-    if (ptr == (void*)-1) {
-        return 0;
-    }
-    
-    return ptr;
-}
-
-void background_counter() {
+/* void background_counter() {
     int count = 0;
     while(1) {
         // Busy wait (approx 1 sec)
@@ -133,17 +74,6 @@ void background_counter() {
 }
 
 void test_user_function() {
-    /* sys_print("Hello! I am going to count to 3 and then vanish.\n");
-    
-    sys_print("1...\n");
-    sys_print("2...\n");
-    sys_print("3...\n");
-    
-    sys_print("Goodbye cruel world!\n");
-    
-    sys_exit(0);
-    
-    sys_print("ERROR: I am a ghost!\n"); */
 
     char input_char;
     char echo_buf[2];
@@ -164,9 +94,9 @@ void test_user_function() {
              sys_print("> ");
         }
     }
-}
+} */
 
-// 2. The Switch Function
+/* // 2. The Switch Function
 void jump_to_user_mode() {
     
     // A. Define the Ring 3 Selectors based on your GDT
@@ -205,7 +135,7 @@ void jump_to_user_mode() {
         : "r"(user_ds), "r"(user_rsp), "r"(rflags), "r"(user_cs), "r"(entry_point)
         : "rax", "memory"
     );
-}
+} */
 
 
 void kernel_execute_command(){
@@ -234,7 +164,7 @@ void kernel_execute_command(){
     }
 
     else if(kernel_str_cmp(command_buffer, "jump") == 0){
-        jump_to_user_mode();
+        // jump_to_user_mode();
     }
 
     else if (buffer_position > 0){
@@ -379,6 +309,12 @@ void kernel_start(boot_info_t* boot_info_recieved){
     nvme_setup();
     gpt_scan_partition_table(1);
     fat32_init(2048);
+    font_renderer_clear_screen();
+
+    k_printf("[Kernel] Spawning User Shell...\n");
+
+    // Create the task passing the function pointer
+    create_user_task(&user_shell_main);
 
     while(1);
 
