@@ -22,13 +22,13 @@
 
 extern void user_shell_main();
 
-#define MAX_COMMAND_BUFFER 256
+/* #define MAX_COMMAND_BUFFER 256
 char command_buffer[MAX_COMMAND_BUFFER];
-int buffer_position = 0;
+int buffer_position = 0; */
 
 boot_info_t boot_info;
 
-int kernel_str_cmp(const char* str_1, const char* str_2){
+/* int kernel_str_cmp(const char* str_1, const char* str_2){
 
     while(*str_1 && (*str_1 == *str_2)){
         str_1++;
@@ -44,7 +44,7 @@ void kernel_clear_buffer(){
         command_buffer[i] = 0;
     }
     buffer_position = 0;
-}
+} */
 
 
 void kernel_print_memory_info() {
@@ -138,7 +138,7 @@ void jump_to_user_mode() {
 } */
 
 
-void kernel_execute_command(){
+/* void kernel_execute_command(){
     k_printf("\n");
 
     if(kernel_str_cmp(command_buffer, "help") == 0){
@@ -175,7 +175,7 @@ void kernel_execute_command(){
     kernel_clear_buffer();
     k_printf("Project D> ");
     
-}
+} */
 
 void task_A() {
     while(1) {

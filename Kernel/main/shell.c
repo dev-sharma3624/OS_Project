@@ -1,21 +1,9 @@
-#include <typedefs.h>
 #include <architecture/x86_64/syscalls.h>
 #include <libs/k_string.h>
 
-/* #define MAX_COMMAND_BUFFER 256
-char command_buffer[MAX_COMMAND_BUFFER];
-int buffer_position = 0;
-
-int kernel_str_cmp(const char* str_1, const char* str_2){
-
-    while(*str_1 && (*str_1 == *str_2)){
-        str_1++;
-        str_2++;
-    }
-
-    return *(const unsigned char*) str_1 - *(const unsigned char*)str_2;
-
-}
+#define MAX_COMMAND_BUFFER 256
+static  command_buffer[MAX_COMMAND_BUFFER];
+static int buffer_position = 0;
 
 void kernel_clear_buffer(){
     for(int i = 0; i < MAX_COMMAND_BUFFER; i++){
@@ -24,46 +12,92 @@ void kernel_clear_buffer(){
     buffer_position = 0;
 }
 
-void shell(){
-    k_printf("\n");
+void kernel_execute_command(){
+    
+    sys_print("\n");
 
-    if(kernel_str_cmp(command_buffer, "help") == 0){
-        k_printf("Available commands:\n");
-        k_printf(" - help: Show this menu\n");
-        k_printf(" - clear: Clean the screen\n");
-        k_printf(" - reboot: Reboot the CPU\n");
-        k_printf(" - meminfo: See how much RAM is being used\n");
-        k_printf(" - drums of liberation: Awaken the Sun God!\n");
-        k_printf(" - jump\n");
+    if(k_strcmp(command_buffer, "help") == 0){
+        sys_print("Available commands:\n");
+        sys_print(" - help: Show this menu\n");
+        sys_print(" - clear: Clean the screen\n");
+        sys_print(" - reboot: Reboot the CPU\n");
+        sys_print(" - meminfo: See how much RAM is being used\n");
+        sys_print(" - drums of liberation: Awaken the Sun God!\n");
     }
 
-    else if(kernel_str_cmp(command_buffer, "clear") == 0){
+    else if(k_strcmp(command_buffer, "clear") == 0){
         font_renderer_clear_screen();
     }
 
-    else if(kernel_str_cmp(command_buffer, "meminfo") == 0){
+    else if(k_strcmp(command_buffer, "meminfo") == 0){
         kernel_print_memory_info();
     }
 
-    else if(kernel_str_cmp(command_buffer, "drums of liberation") == 0){
-        k_printf("THE ONE PIECE IS REAL!\n");
-    }
-
-    else if(kernel_str_cmp(command_buffer, "jump") == 0){
-        jump_to_user_mode();
+    else if(k_strcmp(command_buffer, "drums of liberation") == 0){
+        sys_print("THE ONE PIECE IS REAL!\n");
     }
 
     else if (buffer_position > 0){
-        k_printf("Unknown command: ");
-        k_printf("%s\n", command_buffer);
+        sys_print("Unknown command: ");
+        sys_print(command_buffer);
+        sys_print("\n");
     };
 
     kernel_clear_buffer();
-    k_printf("Project D> ");
-    
-} */
+    sys_print("Project D> ");
+}
 
-void user_shell_main() {
+void user_shell_main(){
+    
+    char input_char;
+
+    sys_print("\n====================================\n");
+    sys_print("      Project D v1.0 (USER)      \n");
+    sys_print("====================================\n");
+
+    sys_print("Project D v1.0. Type 'help'.\nProject D> ");
+    
+    while (1)
+    {
+        sys_read(&input_char);
+
+        if(input_char == '\b'){ //backspace key
+
+            if(buffer_position > 0){
+
+                buffer_position--;
+                command_buffer[buffer_position] = 0;
+
+                sys_print("\b");
+            }
+            continue;
+        }
+
+        if (input_char == '\n'){ //enter key
+            kernel_execute_command();
+            continue;
+        }
+
+        if(input_char >= 32 && input_char <= 126){
+
+            if(input_char != 0){
+
+                if(buffer_position < MAX_COMMAND_BUFFER - 1){
+
+                    command_buffer[buffer_position] = input_char;
+                    buffer_position++;
+
+                    char temp[2] = {input_char, '\0'};
+                    sys_print(temp);
+
+                }
+            }
+        }
+
+    }
+}
+
+/* void user_shell_main() {
     char cmd[100];
     int idx = 0;
 
@@ -119,4 +153,4 @@ void user_shell_main() {
             sys_print("Unknown command.\n");
         }
     }
-}
+} */

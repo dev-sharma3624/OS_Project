@@ -1,7 +1,7 @@
 #pragma once
 
 
-unsigned char read_key();
+char read_key();
 
 
 

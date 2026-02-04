@@ -3,7 +3,6 @@
 #include <architecture/x86_64/spinlock_atomic_instr.h>
 #include <libs/k_printf.h>
 #include <drivers/keyboard_driver.h>
-#include <drivers/keyboard_map.h>
 #include <cpu_scheduling/process.h>
 #include <cpu_scheduling/scheduler.h>
 #include <memory_management/paging.h>
@@ -33,9 +32,9 @@ void syscall_dispatcher(trap_frame_t* frame){
         case SYS_READ:
             char* user_buffer = (char*)frame->rdi; 
             
-            unsigned char key = read_key(); 
+            char key = read_key(); 
             
-            *user_buffer = scan_code_for_lookup_table[key];
+            *user_buffer = key;
             
             frame->rax = 1;
             break;
