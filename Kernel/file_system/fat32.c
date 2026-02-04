@@ -14,10 +14,6 @@ uint64_t data_start_lba;
 uint64_t fat_start_lba;
 uint64_t fat_size_in_sectors;
 
-#define EOF 0x0FFFFFF8
-#define FILE_ATTR 0x20
-#define DIR_ATTR 0x10
-
 #define FAT_BYTES_OFFSET(cluster_no) (cluster_no * 4)
 #define FAT_SECTOR_OFFSET(fat_bytes_offset) (fat_bytes_offset / bytes_per_sector)
 #define FAT_ENTRY_OFFSET(fat_bytes_offset) (fat_bytes_offset % bytes_per_sector)
@@ -140,7 +136,6 @@ void fat32_set_fat_entry(uint32_t cluster, uint32_t value) {
     // loading the sector
     uint64_t buffer_phys = (uint64_t)pmm_request_page();
     uint64_t buffer_virt = P2V(buffer_phys);
-    k_printf("set fat entry read\n");
     fat32_read_fat_sector(fat_sector_offset, buffer_phys);
 
     // pointing to that specific entry in the fat
@@ -150,10 +145,8 @@ void fat32_set_fat_entry(uint32_t cluster, uint32_t value) {
     // but usually setting it to 0x0FFFFFFF for EOF is fine.
     *table_entry = value; 
 
-    k_printf("set fat entry write\n");
     // saving it back to disk
     nvme_write_sector(fat_start_lba + fat_sector_offset, buffer_phys);
-    k_printf("set fat entry write end\n");
 
     pmm_free_page(buffer_phys);
 }
@@ -191,7 +184,6 @@ uint32_t fat32_find_free_cluster() {
         }
     }
 
-    k_printf("Error: No free clusters found in first 10 FAT sectors.\n");
     pmm_free_page(buffer_phys);
     return 0;
 }
@@ -238,7 +230,6 @@ int fat32_match_file(fat32_directory_entry_t* directory, char* file_name, int n)
 
 //returns a 64-bit aggregate of cluster(lower 32 bits) and file_size(upper 32 bits), returns 0 if file not found
 uint64_t fat32_find_file(uint32_t dir_loc_cluster, char* file_name){
-    k_printf("find file\n");
 
     //the first lba at which file chain begins in data region
     uint32_t dir_sector_offset = FILE_SECTOR_OFFSET(dir_loc_cluster);
@@ -288,8 +279,6 @@ uint64_t fat32_find_file(uint32_t dir_loc_cluster, char* file_name){
     } while (true);
 
     pmm_free_page(buffer_phys);
-    
-    k_printf("find file end\n");
     return 0;
 
 }
@@ -498,13 +487,12 @@ void fat32_zero_cluster(uint32_t cluster_number) {
     pmm_free_page(buffer_phys);
 }
 
-void fat32_create_file(char* filename, char* content, int size, uint32_t dir_loc_cluster, uint8_t attr) {
+int fat32_create_file(char* filename, char* content, int size, uint32_t dir_loc_cluster, uint8_t attr) {
 
     uint64_t existing_file = fat32_find_file(dir_loc_cluster, filename);
 
     if (existing_file != 0) {
-        k_printf("Error: Name already exists.\n");
-        return; 
+        return -1; 
     }
 
     uint64_t cluster_size = sectors_per_cluster * bytes_per_sector;
@@ -512,9 +500,7 @@ void fat32_create_file(char* filename, char* content, int size, uint32_t dir_loc
 
     // finding an empty cluster by looking inside the fat table
     uint32_t initial_cluster = fat32_find_free_cluster();
-    if (initial_cluster == 0) return;
-
-    k_printf("Allocated Cluster %d for file.\n", initial_cluster);
+    if (initial_cluster == 0) return -1;
 
     // marking it as used inside fat
     fat32_set_fat_entry(initial_cluster, EOF);
@@ -523,30 +509,23 @@ void fat32_create_file(char* filename, char* content, int size, uint32_t dir_loc
     uint32_t sector_offset = FILE_SECTOR_OFFSET(initial_cluster);
     uint64_t lba = FILE_START_LBA(sector_offset);
 
-    k_printf("sectors per cluster: %d\n", sectors_per_cluster);
-    k_printf("nvme sector size : %d\n", nvme_get_sector_size());
     uint32_t required_sectors = (size / bytes_per_sector) + 1;
     required_sectors = (required_sectors < sectors_per_cluster) ? required_sectors : sectors_per_cluster;
     for(int s = 0; s < required_sectors; s++) {
-        k_printf("calculated lba: %d\n", lba + s);
-        k_printf("calculated address: %p\n", V2P(content + (s *bytes_per_sector)));
         nvme_write_sector(
             lba + s,
             V2P(content + (s * bytes_per_sector)) // Offset for sector
         );
     }
-    k_printf("writing first cluster end\n");
 
     uint32_t previous_cluster = initial_cluster;
 
-    k_printf("writing further clusters\n");
     for(int i = 1; i < required_clusters; i++){
 
         // finding an empty cluster by looking inside the fat table
         uint32_t next_free_cluster = fat32_find_free_cluster();
-        if (next_free_cluster == 0) return;
+        if (next_free_cluster == 0) return -1;
 
-        k_printf("Allocated Cluster %d for file.\n", next_free_cluster);
 
         // marking it as used inside fat
         fat32_set_fat_entry(previous_cluster, next_free_cluster);
@@ -568,12 +547,11 @@ void fat32_create_file(char* filename, char* content, int size, uint32_t dir_loc
         previous_cluster = next_free_cluster;
 
     }
-    k_printf("writing further clusters end\n");
 
     // update the directory
     fat32_add_directory_entry(filename, dir_loc_cluster, initial_cluster, size, attr);
     
-    k_printf("File %s written successfully.\n", filename);
+    return 0;
 }
 
 void fat32_create_dir(char* dirName, uint32_t parent_dir_cluster){

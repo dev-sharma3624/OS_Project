@@ -2,38 +2,56 @@
 #include <libs/k_string.h>
 
 #define MAX_COMMAND_BUFFER 256
-static  command_buffer[MAX_COMMAND_BUFFER];
+static char command_buffer[MAX_COMMAND_BUFFER];
 static int buffer_position = 0;
 
-void kernel_clear_buffer(){
+void clear_buffer(){
     for(int i = 0; i < MAX_COMMAND_BUFFER; i++){
         command_buffer[i] = 0;
     }
     buffer_position = 0;
 }
 
-void kernel_execute_command(){
+void execute_command(){
+
+    char* args[10];
+    int argc = str_split(command_buffer, '|', args);
+
+    if(argc <= 0){
+        return;
+    }
+
+    char* fist_arg = args[0];
+    str_trim(fist_arg);
     
     sys_print("\n");
 
-    if(k_strcmp(command_buffer, "help") == 0){
+    if(k_strcmp(fist_arg, "help") == 0){
         sys_print("Available commands:\n");
         sys_print(" - help: Show this menu\n");
         sys_print(" - clear: Clean the screen\n");
         sys_print(" - reboot: Reboot the CPU\n");
         sys_print(" - meminfo: See how much RAM is being used\n");
+        sys_print(" - create: create a new text file\n");
         sys_print(" - drums of liberation: Awaken the Sun God!\n");
     }
 
-    else if(k_strcmp(command_buffer, "clear") == 0){
+    else if(k_strcmp(fist_arg, "clear") == 0){
         font_renderer_clear_screen();
     }
 
-    else if(k_strcmp(command_buffer, "meminfo") == 0){
-        kernel_print_memory_info();
+    else if(k_strcmp(fist_arg, "meminfo") == 0){
     }
 
-    else if(k_strcmp(command_buffer, "drums of liberation") == 0){
+    else if(k_strcmp(fist_arg, "create") == 0){
+        char* filename = args[1];
+        char* content = args[2];
+        str_trim(filename);
+        str_trim(content);
+        sys_create_file(filename, content);
+    }
+
+    else if(k_strcmp(fist_arg, "drums of liberation") == 0){
         sys_print("THE ONE PIECE IS REAL!\n");
     }
 
@@ -43,7 +61,7 @@ void kernel_execute_command(){
         sys_print("\n");
     };
 
-    kernel_clear_buffer();
+    clear_buffer();
     sys_print("Project D> ");
 }
 
@@ -74,7 +92,7 @@ void user_shell_main(){
         }
 
         if (input_char == '\n'){ //enter key
-            kernel_execute_command();
+            execute_command();
             continue;
         }
 

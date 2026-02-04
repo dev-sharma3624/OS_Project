@@ -61,3 +61,15 @@ void* malloc(uint64_t size) {
     
     return ptr;
 }
+
+void sys_create_file(char* name, char* content) {
+    asm volatile (
+        "mov $5, %%rax\n"      // Syscall code 5
+        "mov %0, %%rdi\n"      // Arg 1: Filename
+        "mov %1, %%rsi\n"      // Arg 2: Content
+        "int $0x80\n"          // Trigger Interrupt
+        :
+        : "r"(name), "r"(content)
+        : "rax", "rdi", "rsi"  // Inform compiler we used these registers
+    );
+}

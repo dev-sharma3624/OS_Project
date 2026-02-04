@@ -1,6 +1,10 @@
 #pragma once
 #include <typedefs.h>
 
+#define EOF 0x0FFFFFF8
+#define FILE_ATTR 0x20
+#define DIR_ATTR 0x10
+
 // BIOS Parameter Block (BPB) for FAT32
 typedef struct {
     // --- Common BPB (Offsets 0 - 35) ---
