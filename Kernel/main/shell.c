@@ -33,14 +33,17 @@ void execute_command(){
         sys_print(" - reboot: Reboot the CPU\n");
         sys_print(" - meminfo: See how much RAM is being used\n");
         sys_print(" - create: create a new text file\n");
+        sys_print(" - read: read a text file\n");
+        sys_print(" - ls: list all files\n");
         sys_print(" - drums of liberation: Awaken the Sun God!\n");
     }
 
     else if(k_strcmp(fist_arg, "clear") == 0){
-        font_renderer_clear_screen();
+        sys_clear();
     }
 
     else if(k_strcmp(fist_arg, "meminfo") == 0){
+        sys_meminfo();
     }
 
     else if(k_strcmp(fist_arg, "create") == 0){
@@ -49,6 +52,16 @@ void execute_command(){
         str_trim(filename);
         str_trim(content);
         sys_create_file(filename, content);
+    }
+
+    else if(k_strcmp(fist_arg, "read") == 0){
+        char* filename = args[1];
+        str_trim(filename);
+        sys_read_file(filename);
+    }
+
+    else if(k_strcmp(fist_arg, "ls") == 0){
+        sys_ls();
     }
 
     else if(k_strcmp(fist_arg, "drums of liberation") == 0){

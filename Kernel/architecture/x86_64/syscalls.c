@@ -73,3 +73,44 @@ void sys_create_file(char* name, char* content) {
         : "rax", "rdi", "rsi"  // Inform compiler we used these registers
     );
 }
+
+void sys_read_file(char* filename) {
+    asm volatile (
+        "mov $6, %%rax\n"      // Syscall number 6
+        "mov %0, %%rdi\n"      // Arg 1: Filename
+        "int $0x80\n"          // Trigger Interrupt
+        :
+        : "r"(filename)
+        : "rax", "rdi"
+    );
+}
+
+void sys_ls() {
+    asm volatile (
+        "mov $4, %%rax\n"      // Syscall number 4
+        "int $0x80\n"          // Trigger Interrupt
+        :
+        :
+        : "rax"
+    );
+}
+
+void sys_clear() {
+    asm volatile (
+        "mov $7, %%rax\n"      // Syscall number 7
+        "int $0x80\n"          // Trigger Interrupt
+        :
+        :
+        : "rax"
+    );
+}
+
+void sys_meminfo() {
+    asm volatile (
+        "mov $8, %%rax\n"      // Syscall number 8
+        "int $0x80\n"          // Trigger Interrupt
+        :
+        :
+        : "rax"
+    );
+}

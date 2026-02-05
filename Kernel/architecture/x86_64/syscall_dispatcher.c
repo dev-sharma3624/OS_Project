@@ -8,6 +8,7 @@
 #include <memory_management/paging.h>
 #include <memory_management/pmm.h>
 #include <file_system/fs_interface.h>
+#include <drivers/font_renderer.h>
 
 extern tcb_t* current_task;
 
@@ -17,7 +18,10 @@ enum SYSTEM_CALL_NOS{
     SYS_EXIT,
     SYS_SBRK,
     SYS_LS,
-    SYS_CREATE_FILE
+    SYS_CREATE_FILE,
+    SYS_READ_FILE,
+    SYS_CLEAR,
+    SYS_MEMINFO
 };
 
 void dispatch_print(trap_frame_t* frame){
@@ -80,9 +84,7 @@ void dispatch_brk(trap_frame_t* frame){
 }
 
 void dispatch_ls(trap_frame_t* frame){
-
-    k_printf("\nfat32 call comes here\n");
-    
+    fs_ls();
     frame->rax = 0;
 }
 
@@ -90,6 +92,23 @@ void dispatch_create_file(trap_frame_t* frame){
     char* file_name = (char*)frame->rdi;
     char* content = (char*) frame->rsi;
     int result = fs_create_file(file_name, content);
+}
+
+void dispatch_read_file(trap_frame_t* frame){
+    char* file_name = (char*)frame->rdi;
+    fs_read_file(file_name);
+}
+
+void dispatch_meminfo(){
+    uint64_t total_memory = free_memory + reserved_memory + used_memory;
+
+    k_printf("\n--- Memory Statistics ---\n");
+    k_printf("Total RAM:    %d MB\n", total_memory / 1024 / 1024);
+    k_printf("Free RAM:     %d MB\n", free_memory / 1024 / 1024);
+    k_printf("Used RAM:     %d KB\n", used_memory / 1024);
+    k_printf("Reserved RAM: %d MB\n", reserved_memory / 1024 / 1024);
+
+    k_printf("-------------------------\n");
 }
 
 void syscall_dispatcher(trap_frame_t* frame){
@@ -119,6 +138,19 @@ void syscall_dispatcher(trap_frame_t* frame){
         case SYS_CREATE_FILE:
             dispatch_create_file(frame);
             break;
+
+        case SYS_READ_FILE:
+            dispatch_read_file(frame);
+            break;
+
+        case SYS_CLEAR:
+            font_renderer_clear_screen();
+            break;
+
+        case SYS_MEMINFO:
+            dispatch_meminfo();
+            break;
+
 
         default:
             k_printf("Unknown Syscall: %d\n", syscall_no);
