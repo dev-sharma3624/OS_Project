@@ -61,3 +61,6 @@ typedef struct {
 } __attribute__((packed)) fat32_directory_entry_t;
 
 void fat32_init(uint64_t partition_start_lba);
+int fat32_create_file(char* filename, char* content, int size, uint32_t dir_loc_cluster, uint8_t attr);
+void fat32_read_file(uint32_t cluster, char* file_name);
+void fat32_list_all_entries(uint32_t dir_cluster);

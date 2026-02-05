@@ -317,10 +317,6 @@ void fat32_read_file(uint32_t cluster, char* file_name){
         return;
     }
 
-    k_printf("\nFAT32: Found File! Reading content...\n");
-
-    k_printf("  -> Content: \"");
-    
     uint64_t file_sector_offset = FILE_SECTOR_OFFSET(file_cluster);
     uint64_t file_start_lba = FILE_START_LBA(file_sector_offset);
 
@@ -361,7 +357,7 @@ void fat32_read_file(uint32_t cluster, char* file_name){
     }
     
 
-    k_printf("\"\n");
+    k_printf("\n\n");
 
     if(bytes_read != file_size){
         k_printf("ERROR: File read bytes and file size mismatch\n");
@@ -584,7 +580,67 @@ void fat32_create_dir(char* dirName, uint32_t parent_dir_cluster){
 
 }
 
-void fat32_test_write() {
+void fat32_list_all_entries(uint32_t dir_cluster){
+
+    uint64_t buffer_phys = (uint64_t)pmm_request_page();
+    uint64_t buffer_virt = P2V(buffer_phys);
+    memset((void*)buffer_virt, 0, 4096);
+    
+    uint64_t dir_sector_offset = FILE_SECTOR_OFFSET(dir_cluster);
+    uint64_t dir_start_lba = FILE_START_LBA(dir_sector_offset);
+
+    uint64_t entries_per_sector = bytes_per_sector / sizeof(fat32_directory_entry_t);
+
+    while(true){
+
+        for(int i = 0; i < sectors_per_cluster; i++){
+
+            uint64_t read_lba = dir_start_lba + i;
+            nvme_read_sector(read_lba, buffer_phys);
+
+
+            fat32_directory_entry_t* directory = (fat32_directory_entry_t*)buffer_virt;
+
+            for (int i = 0; i < entries_per_sector; i++) {
+                if (directory[i].name[0] == 0x00) break;
+
+                // Check for Deleted File (0xE5)
+                if (directory[i].name[0] == 0xE5) continue;
+
+                // Check for Long File Name entry (Attribute 0x0F)
+                // (We skip these for now to keep it simple)
+                if (directory[i].attributes == 0x0F) continue;
+
+                // Print the Name
+                k_printf("  FILE: \"");
+                for (int j = 0; j < 8; j++) {
+                    if (directory[i].name[j] != ' ') k_printf("%c", directory[i].name[j]);
+                }
+                k_printf(".");
+                for (int j = 0; j < 3; j++) {
+                    if (directory[i].ext[j] != ' ') k_printf("%c", directory[i].ext[j]);
+                }
+                k_printf("\"  (Size: %d bytes)\n", directory[i].file_size);
+
+            }
+            
+        }
+
+        uint32_t next_cluster = fat32_find_next_cluster(dir_cluster);
+        if(next_cluster >= EOF){
+            break;
+        }
+        dir_sector_offset = FILE_SECTOR_OFFSET(next_cluster);
+        dir_start_lba = FILE_START_LBA(dir_sector_offset);
+
+    }
+    
+    k_printf("\n\n");
+
+    pmm_free_page(buffer_phys);
+}
+
+/* void fat32_test_write() {
     k_printf("\n--- STARTING FAT32 WRITE TEST ---\n");
 
     char* filename = "TEST    TXT"; 
@@ -622,7 +678,7 @@ void test_impl(){
 
     fat32_read_file(2, file_name);
 
-}
+} */
 
 
 void fat32_init(uint64_t partition_start_lba) {
