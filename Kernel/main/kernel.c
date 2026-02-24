@@ -272,8 +272,8 @@ void initialize_frame_renderer(){
     //converting physical->virtual since frame buffer was left to be sanitized after page table setup
     boot_info.frame_buffer.frame_buffer_base = (void*)P2V(boot_info.frame_buffer.frame_buffer_base);
 
-    uint32_t text_color = 0xFF000000;
-    uint32_t bg_color = 0xFFFF8000;
+    uint32_t text_color = 0xFF00FF00;
+    uint32_t bg_color = 0xFF000000;
 
     font_renderer_init(&boot_info.frame_buffer, boot_info.font, text_color, bg_color);
 
