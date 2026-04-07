@@ -103,3 +103,47 @@ int str_split(char* str, char delim, char** tokens) {
     
     return idx; // Return the count so the caller knows how many tokens exist
 }
+
+void str_pad(char* str, char pad_char, int n) {
+    // Basic safety check for null pointers or invalid target lengths
+    if (str == NULL || n <= 0) {
+        return;
+    }
+
+    int current_len = k_strlen(str);
+
+    // If the string is already at or beyond the target length, do nothing
+    if (current_len >= n) {
+        return;
+    }
+
+    // Pad the string starting from the original null terminator
+    for (int i = current_len; i < n; i++) {
+        str[i] = pad_char;
+    }
+
+    // Always ensure the new string is properly null-terminated
+    str[n] = '\0';
+}
+
+void str_append(char* dest, const char* src) {
+    // Safety check for null pointers
+    if (dest == NULL || src == NULL) {
+        return;
+    }
+
+    // 1. Traverse 'dest' until we find its null terminator ('\0')
+    while (*dest != '\0') {
+        dest++;
+    }
+
+    // 2. Copy characters from 'src' to the end of 'dest'
+    while (*src != '\0') {
+        *dest = *src;
+        dest++;
+        src++;
+    }
+
+    // 3. Explicitly add the null terminator to close the new string
+    *dest = '\0';
+}

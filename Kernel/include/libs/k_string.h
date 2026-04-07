@@ -5,3 +5,5 @@ int k_strlen(char* s);
 char k_str_to_upper(char c);
 void str_trim(char* str);
 int str_split(char* str, char delim, char** tokens);
+void str_pad(char* str, char pad_char, int n);
+void str_append(char* dest, const char* src);
