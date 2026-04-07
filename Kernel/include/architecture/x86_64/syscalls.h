@@ -10,3 +10,4 @@ void sys_read_file(char* filename);
 void sys_ls();
 void sys_clear();
 void sys_meminfo();
+void sys_create_dir(char* dirName);

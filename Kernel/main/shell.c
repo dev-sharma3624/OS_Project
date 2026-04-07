@@ -21,12 +21,12 @@ void execute_command(){
         return;
     }
 
-    char* fist_arg = args[0];
-    str_trim(fist_arg);
+    char* first_arg = args[0];
+    str_trim(first_arg);
     
     sys_print("\n");
 
-    if(k_strcmp(fist_arg, "help") == 0){
+    if(k_strcmp(first_arg, "help") == 0){
         sys_print("Available commands:\n");
         sys_print(" - help: Show this menu\n");
         sys_print(" - clear: Clean the screen\n");
@@ -35,18 +35,19 @@ void execute_command(){
         sys_print(" - create: create a new text file\n");
         sys_print(" - read: read a text file\n");
         sys_print(" - ls: list all files\n");
+        sys_print(" - forge: create a new directory\n");
         sys_print(" - drums of liberation: Awaken the Sun God!\n");
     }
 
-    else if(k_strcmp(fist_arg, "clear") == 0){
+    else if(k_strcmp(first_arg, "clear") == 0){
         sys_clear();
     }
 
-    else if(k_strcmp(fist_arg, "meminfo") == 0){
+    else if(k_strcmp(first_arg, "meminfo") == 0){
         sys_meminfo();
     }
 
-    else if(k_strcmp(fist_arg, "create") == 0){
+    else if(k_strcmp(first_arg, "create") == 0){
         char* filename = args[1];
         char* content = args[2];
         str_trim(filename);
@@ -54,17 +55,23 @@ void execute_command(){
         sys_create_file(filename, content);
     }
 
-    else if(k_strcmp(fist_arg, "read") == 0){
+    else if(k_strcmp(first_arg, "read") == 0){
         char* filename = args[1];
         str_trim(filename);
         sys_read_file(filename);
     }
 
-    else if(k_strcmp(fist_arg, "ls") == 0){
+    else if(k_strcmp(first_arg, "ls") == 0){
         sys_ls();
     }
 
-    else if(k_strcmp(fist_arg, "drums of liberation") == 0){
+    else if(k_strcmp(first_arg, "forge") == 0){
+        char* dirName = args[1];
+        str_trim(dirName);
+        sys_create_dir(dirName);
+    }
+
+    else if(k_strcmp(first_arg, "drums of liberation") == 0){
         sys_print("THE ONE PIECE IS REAL!\n");
     }
 

@@ -114,3 +114,14 @@ void sys_meminfo() {
         : "rax"
     );
 }
+
+void sys_create_dir(char* dirName) {
+    asm volatile (
+        "mov $9, %%rax\n"      // Syscall number 9
+        "mov %0, %%rdi\n"      // Arg 1: Directory Name
+        "int $0x80\n"          // Trigger Interrupt
+        :
+        : "r"(dirName)
+        : "rax", "rdi"
+    );
+}

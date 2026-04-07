@@ -21,7 +21,8 @@ enum SYSTEM_CALL_NOS{
     SYS_CREATE_FILE,
     SYS_READ_FILE,
     SYS_CLEAR,
-    SYS_MEMINFO
+    SYS_MEMINFO,
+    SYS_CREATE_DIR
 };
 
 void dispatch_print(trap_frame_t* frame){
@@ -111,6 +112,11 @@ void dispatch_meminfo(){
     k_printf("-------------------------\n");
 }
 
+void dispatch_create_directory(trap_frame_t* frame){
+    char* dirName = (char*)frame->rdi;
+    fs_create_dir(dirName);
+}
+
 void syscall_dispatcher(trap_frame_t* frame){
     uint64_t syscall_no = frame->rax;
 
@@ -149,6 +155,10 @@ void syscall_dispatcher(trap_frame_t* frame){
 
         case SYS_MEMINFO:
             dispatch_meminfo();
+            break;
+        
+        case SYS_CREATE_DIR:
+            dispatch_create_directory(frame);
             break;
 
 

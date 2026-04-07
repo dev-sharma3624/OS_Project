@@ -21,6 +21,8 @@ uint64_t fat_size_in_sectors;
 #define FILE_SECTOR_OFFSET(cluster_no) ((cluster_no - 2) * sectors_per_cluster)
 #define FILE_START_LBA(sector_offset) (sector_offset + data_start_lba)
 
+#define DIRECTORY_SELF_POINTER ".       "
+#define DIRECTORY_PARENT_POINTER "..      "
 
 void fat32_read_bpb(uint64_t partition_start_lba){
 
@@ -553,8 +555,6 @@ int fat32_create_file(char* filename, char* content, int size, uint32_t dir_loc_
 
 void fat32_create_dir(char* dirName, uint32_t parent_dir_cluster){
 
-    k_printf("create dir\n");
-
     uint64_t existing_file = fat32_find_file(parent_dir_cluster, dirName);
 
     if (existing_file != 0) {
@@ -566,8 +566,6 @@ void fat32_create_dir(char* dirName, uint32_t parent_dir_cluster){
     uint32_t initial_cluster = fat32_find_free_cluster();
     if (initial_cluster == 0) return;
 
-    k_printf("Allocated Cluster %d for file.\n", initial_cluster);
-
     // marking it as used inside fat
     fat32_set_fat_entry(initial_cluster, 0x0FFFFFFF);
 
@@ -576,8 +574,8 @@ void fat32_create_dir(char* dirName, uint32_t parent_dir_cluster){
     uint64_t lba = FILE_START_LBA(sector_offset);
 
     fat32_add_directory_entry(dirName, parent_dir_cluster, initial_cluster, 0, DIR_ATTR);
-    fat32_add_directory_entry(".       ", initial_cluster, initial_cluster, 0, DIR_ATTR);
-    fat32_add_directory_entry("..      ", initial_cluster, parent_dir_cluster, 0, DIR_ATTR);
+    fat32_add_directory_entry(DIRECTORY_SELF_POINTER, initial_cluster, initial_cluster, 0, DIR_ATTR);
+    fat32_add_directory_entry(DIRECTORY_PARENT_POINTER, initial_cluster, parent_dir_cluster, 0, DIR_ATTR);
 
 }
 
