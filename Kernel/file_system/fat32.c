@@ -370,6 +370,7 @@ void fat32_set_dir_ent_values(fat32_directory_entry_t* directory, int found_slot
     
     // copying file name to the directory address
     memcpy(directory[found_slot].name, file_name, 8);
+    memcpy(directory[found_slot].ext, file_name + 8, 3);
     
     // 0x20 is Archive/File
     directory[found_slot].attributes = attr;
