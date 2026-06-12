@@ -58,6 +58,11 @@ void fs_create_dir(char* recieved_dir_name){
     fat32_create_dir(dirName, current_dir_cluster);
 }
 
-void fs_change_dir(char* dir_name){
-
+void fs_change_dir(char* recieved_dir_name){
+    char dirName[11];
+    k_strcpy(dirName, recieved_dir_name);
+    str_pad(dirName, ' ', 10);
+    dirName[10] = ' ';
+    uint32_t file_cluster = (uint32_t) (fat32_find_file(current_dir_cluster, dirName) & 0xFFFFFFFF);
+    current_dir_cluster = file_cluster;
 }

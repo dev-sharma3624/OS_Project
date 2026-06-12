@@ -5,6 +5,9 @@
 static char command_buffer[MAX_COMMAND_BUFFER];
 static int buffer_position = 0;
 
+#define PATH 256
+char path[PATH] = "Project D>";
+
 void clear_buffer(){
     for(int i = 0; i < MAX_COMMAND_BUFFER; i++){
         command_buffer[i] = 0;
@@ -36,6 +39,7 @@ void execute_command(){
         sys_print(" - read: read a text file\n");
         sys_print(" - ls: list all files\n");
         sys_print(" - forge: create a new directory\n");
+        sys_print(" - teleport: change directory\n");
         sys_print(" - drums of liberation: Awaken the Sun God!\n");
     }
 
@@ -71,6 +75,15 @@ void execute_command(){
         sys_create_dir(dirName);
     }
 
+    else if(k_strcmp(first_arg, "teleport") == 0){
+        char* dirName = args[1];
+        str_trim(dirName);
+        sys_change_dir(dirName);
+        sys_print("path append\n");
+        str_append(path, dirName);
+        str_append(path, ">");
+    }
+
     else if(k_strcmp(first_arg, "drums of liberation") == 0){
         sys_print("THE ONE PIECE IS REAL!\n");
     }
@@ -82,7 +95,7 @@ void execute_command(){
     };
 
     clear_buffer();
-    sys_print("Project D> ");
+    sys_print(path);
 }
 
 void user_shell_main(){

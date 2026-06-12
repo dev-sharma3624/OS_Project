@@ -65,3 +65,4 @@ int fat32_create_file(char* filename, char* content, int size, uint32_t dir_loc_
 void fat32_read_file(uint32_t cluster, char* file_name);
 void fat32_list_all_entries(uint32_t dir_cluster);
 void fat32_create_dir(char* dirName, uint32_t parent_dir_cluster);
+uint64_t fat32_find_file(uint32_t dir_loc_cluster, char* file_name);
