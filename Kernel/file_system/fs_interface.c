@@ -22,8 +22,18 @@ int fs_create_file(char* recieved_file_name, char* content){
     return result;
 }
 
-void fs_read_file(char* filename){
-    fat32_read_file(current_dir_cluster, filename);
+void fs_read_file(char* recieved_file_name){
+    char* name_and_ext[2];
+    char fileName[12];
+    str_split(recieved_file_name, '.', name_and_ext);
+    str_trim(name_and_ext[0]);
+    str_trim(name_and_ext[1]);
+
+    k_strcpy(fileName, name_and_ext[0]);
+    str_pad(fileName, ' ', 8);
+    str_append(fileName, name_and_ext[1]);
+
+    fat32_read_file(current_dir_cluster, fileName);
 }
 
 void fs_ls(){
@@ -43,8 +53,8 @@ void fs_current_dir(char* buffer){
 void fs_create_dir(char* recieved_dir_name){
     char dirName[11];
     k_strcpy(dirName, recieved_dir_name);
-    str_pad(dirName, " ", 10);
-    dirName[10] = " ";
+    str_pad(dirName, ' ', 10);
+    dirName[10] = ' ';
     fat32_create_dir(dirName, current_dir_cluster);
 }
 
