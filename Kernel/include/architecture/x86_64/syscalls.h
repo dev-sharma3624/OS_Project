@@ -11,3 +11,4 @@ void sys_ls();
 void sys_clear();
 void sys_meminfo();
 void sys_create_dir(char* dirName);
+void sys_change_dir(char* dirName);

@@ -125,3 +125,14 @@ void sys_create_dir(char* dirName) {
         : "rax", "rdi"
     );
 }
+
+void sys_change_dir(char* dirName) {
+    asm volatile (
+        "mov $10, %%rax\n"      // Syscall number 10
+        "mov %0, %%rdi\n"      // Arg 1: Directory Name
+        "int $0x80\n"          // Trigger Interrupt
+        :
+        : "r"(dirName)
+        : "rax", "rdi"
+    );
+}
