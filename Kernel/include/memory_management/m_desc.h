@@ -2,6 +2,8 @@
 
 #include "typedefs.h"
 
+#define EFI_CONVENTIONAL_MEMORY 7
+
 typedef struct{
     uint32_t type;
     uint64_t physical_start;

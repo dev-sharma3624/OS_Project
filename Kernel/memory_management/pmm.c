@@ -3,6 +3,7 @@
 #include <memory_management/memory.h>
 #include <memory_management/m_bitmap.h>
 #include <memory_management/m_desc.h>
+#include "mm_utils.h"
 
 static memory_bitmap bitmap;
 extern uint64_t _KernelStart;
@@ -83,7 +84,7 @@ void pmm_init(boot_info_t* boot_info){
     for(uint64_t i = 0; i < m_map_entries; i++){
         memory_descriptor_t* desc = (memory_descriptor_t*)((uint64_t)boot_info->m_map + (i * boot_info->m_map_desc_size));
 
-        if(desc->type == 7){
+        if(desc->type == EFI_CONVENTIONAL_MEMORY){
             unlock_pages((void*)desc->physical_start, desc->number_of_pages);
         }
     }

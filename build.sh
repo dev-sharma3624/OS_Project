@@ -21,6 +21,7 @@ gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/memory_management/pmm.c -o image/object/pmm.o
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/memory_management/paging.c -o image/object/paging.o
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/memory_management/heap.c -o image/object/heap.o
+gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/memory_management/mm_utils.c -o image/object/mm_utils.o
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/drivers/timer.c -o image/object/timer.o
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/cpu_scheduling/process.c -o image/object/process.o
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/cpu_scheduling/scheduler.c -o image/object/scheduler.o
@@ -48,6 +49,6 @@ ld -T image/linker.ld -o image/EFI/BOOT/kernel.elf image/object/kernel_jump_asm.
       image/object/interrupts_asm.o image/object/process.o image/object/scheduler.o image/object/switch_asm.o \
       image/object/push_pop_cli.o image/object/syscall_dispatcher.o image/object/pci.o image/object/nvme.o \
       image/object/k_string.o image/object/gpt.o image/object/fat32.o image/object/syscalls.o image/object/shell.o \
-      image/object/fs_interface.o
+      image/object/fs_interface.o image/object/mm_utils.o
 
 echo "=> Build Complete! kernel.elf is ready."

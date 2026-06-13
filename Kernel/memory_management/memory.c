@@ -2,52 +2,26 @@
 #include <typedefs.h>
 #include "../../boot_info.h"
 #include <memory_management/m_desc.h>
+#include "mm_utils.h"
 
 uint64_t memory_get_m_size(boot_info_t* boot_info){
-
-    uint64_t total_memory = 0;
     
-    uint64_t m_map_enntries = boot_info->m_map_size / boot_info->m_map_desc_size;
-    uint64_t m_map_desc_size = boot_info->m_map_desc_size;
+    uint64_t total_memory = 0;
 
-    for(uint64_t i = 0; i < m_map_enntries; i++){
-
-        memory_descriptor_t* desc = (memory_descriptor_t*) ((uint64_t)boot_info->m_map + (i * m_map_desc_size));
-
-        if(desc->type == 7){
-
-            uint64_t physical_end = desc->physical_start + (desc->number_of_pages * 4096);
-
-            if(physical_end > total_memory){
-                total_memory = physical_end;
-            }
-
-        }
-
-    }
+    mm_utils_iterator(boot_info, &total_memory, mm_utils_calc_m_size);
 
     return total_memory;
 
 }
 
 uint64_t memory_find_suitable_m_segment(boot_info_t* boot_info, uint64_t mininmum_segment_size){
-    uint64_t m_map_enntries = boot_info->m_map_size / boot_info->m_map_desc_size;
 
-    for(uint64_t i = 0; i < m_map_enntries; i++){
+    //first element is required segment size, second is the phsyical start address that we want
+    uint64_t context[2] = { mininmum_segment_size, 0 };
+    mm_utils_iterator(boot_info, context, mm_utils_find_segment);
 
-        memory_descriptor_t* desc = (memory_descriptor_t*) ((uint64_t)boot_info->m_map + (i * boot_info->m_map_desc_size));
-
-        if (desc->physical_start < KERNEL_PHSY_BASE) continue;
-
-        if(desc->type == 7){
-
-            uint64_t segment_size = desc->number_of_pages * 4096;
-            if(segment_size > mininmum_segment_size){
-                return desc->physical_start;
-            }
-
-        }
-
+    if(context[1] != 0){
+        return context[1];
     }
 
     return NULL;
