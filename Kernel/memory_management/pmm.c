@@ -21,6 +21,14 @@ bool initialized = false;
 #define PAGE_FREE() (used_memory -= PAGE_SIZE, free_memory += PAGE_SIZE)
 
 
+uint64_t get_bitmap_address(){
+    return (uint64_t)bitmap.address;
+}
+
+uint64_t get_bitmap_size(){
+    return bitmap.size;
+}
+
 static void lock_page(void* address){
     uint64_t index = (uint64_t) address / 4096;
     if(m_bitmap_get_set_memory_bit(&bitmap, index, true)){
@@ -113,6 +121,7 @@ void* pmm_request_page(){
 
         PAGE_ALLOCATE();
 
+        memset((void*) address, 0, 4096); //clearing the page
         return (void*) address;
     }
 }

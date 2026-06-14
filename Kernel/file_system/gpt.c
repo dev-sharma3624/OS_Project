@@ -11,7 +11,6 @@ void gpt_scan_partition_table(uint32_t nsid){
     // requesting memory
     uint64_t buffer_phy_addr = (uint64_t) pmm_request_page();
     uint64_t buffer_virt_addr = P2V(buffer_phy_addr);
-    memset(buffer_virt_addr, 0, 4096);
 
     //GPT header is always at LBA 1
     nvme_read_sector(1, buffer_phy_addr);

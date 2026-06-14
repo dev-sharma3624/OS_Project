@@ -1,6 +1,17 @@
 #pragma once
 
+#include "../../boot_info.h"
 #include <typedefs.h>
+
+#define DIRECT_MAP_BASE 0xFFFF800000000000
+#define P2V_DIRECT(a) ((uint64_t)(a) + DIRECT_MAP_BASE)
+#define V2P_DIRECT(a) ((uint64_t)(a) - DIRECT_MAP_BASE)
+
+typedef enum PAGE_SIZE{
+    KB_4,
+    MB_2,
+    GB_1
+} PAGE_SIZE;
 
 typedef enum {
     PT_FLAG_PRESENT = 1 << 0,
@@ -36,6 +47,6 @@ typedef struct {
 } __attribute__((aligned(4096))) paging_page_table_t;
 
 paging_page_table_t* get_kernel_page_table();
-void paging_map_page(paging_page_table_t* pml4, void* virtual_addr, uint64_t physical_addr, uint64_t flags);
-void paging_init(void* frame_buffer_addr, uint64_t frame_buffer_size, uint64_t total_ram_size);
+void paging_map_page(paging_page_table_t* pml4, void* virtual_addr_ptr, uint64_t physical_addr, uint64_t flags, PAGE_SIZE page_size);
+void paging_init(boot_info_t* boot_info);
 

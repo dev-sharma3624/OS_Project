@@ -5,6 +5,7 @@
 
 #define PAGE_SIZE 4096
 #define HEADER_SIZE() sizeof(heap_segment_header_t)
+#define HEAP_START_ADDRESS 0xFFFFFFFF81000000
 
 heap_segment_header_t* first_segment = NULL; //starting node of the list that tracks heap memory
 void* heap_end_address = NULL; //the virtual address where the heap tracking list ends
@@ -14,18 +15,27 @@ size_t get_heap_size(){
     return total_heap_size;
 }
 
-void heap_init(void* heap_start, size_t heap_size){
+void heap_init(){
+    
+    uint64_t heap_start = (uint64_t) pmm_request_page();
+    paging_map_page(
+        get_kernel_page_table(),
+        HEAP_START_ADDRESS,
+        heap_start,
+        PT_FLAG_PRESENT | PT_FLAG_READ_WRITE,
+        KB_4
+    );
 
-    first_segment = (heap_segment_header_t*) heap_start;
+    first_segment = (heap_segment_header_t*) HEAP_START_ADDRESS;
 
-    first_segment->length = heap_size - sizeof(heap_segment_header_t);
+    first_segment->length = PAGE_SIZE - sizeof(heap_segment_header_t);
 
     first_segment->last = NULL;
     first_segment->next = NULL;
     first_segment->is_free = true;
 
-    heap_end_address = (void*) ((size_t)heap_start + heap_size);
-    total_heap_size = heap_size;
+    heap_end_address = (void*) ((size_t)HEAP_START_ADDRESS + PAGE_SIZE);
+    total_heap_size = PAGE_SIZE;
 
 }
 
@@ -64,7 +74,8 @@ void heap_expand(size_t expansion_size){
             get_kernel_page_table(),
             (void*) ((size_t)heap_end_address + (i * PAGE_SIZE)),
             (size_t) phys_page,
-            PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER
+            PT_FLAG_PRESENT | PT_FLAG_READ_WRITE,
+            KB_4
         );
 
     }

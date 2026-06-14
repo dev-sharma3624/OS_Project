@@ -95,7 +95,8 @@ void create_user_task(void (*entry_point)(void)) {
         get_kernel_page_table(), 
         (uint64_t) u_stack_phys, // Virt
         (uint64_t) u_stack_phys, // Phys
-        PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER // <--- ALLOW USER
+        PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER, // <--- ALLOW USER
+        KB_4
     );
 
     void* u_stack_bottom = P2V(u_stack_phys);
@@ -109,7 +110,8 @@ void create_user_task(void (*entry_point)(void)) {
         get_kernel_page_table(), 
         code_virt,
         code_phys,
-        PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER // <--- ALLOW USER
+        PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER, // <--- ALLOW USER
+        KB_4
     );
 
     // 4. Setup the Trap Frame on the KERNEL Stack

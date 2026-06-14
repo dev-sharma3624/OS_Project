@@ -71,7 +71,8 @@ uint64_t nvme_map_pages(uint64_t physical_addr){
             get_kernel_page_table(),
             (void*) (nvme_virt_addr + i*4096),
             physical_addr + (i*4096),
-            PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_WRITE_THROUGH | PT_FLAG_CACHE_DISABLED  
+            PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_WRITE_THROUGH | PT_FLAG_CACHE_DISABLED,
+            KB_4  
         );
     }
 
@@ -130,12 +131,6 @@ void nvme_setup_admin_sc_queues(nvme_registers_t* nvme_regs){
     //get physical pages for admin queues
     uint64_t* submission_queue = (uint64_t*) pmm_request_page();
     uint64_t* completion_queue = (uint64_t*) pmm_request_page();
-
-    //clearing the pages
-    memset((void*) P2V(submission_queue), 0, 4096);
-    memset((void*) P2V(completion_queue), 0, 4096);
-
-
 
     //admin submission queue size
     //one entry in submission queue is 64 bytes => 4096(page size) / 64 = 64 slots
@@ -292,7 +287,6 @@ void nvme_setup_io_cq(){
 
     //gettin physical memory where submission data structure will be written by the driver
     uint64_t io_cq_phy_addr = (uint64_t) pmm_request_page();
-    memset((void*) P2V(io_cq_phy_addr), 0, 4096);
 
     //creating the a new empty submission queue entry
     nvme_sqe_t* cmd = nvme_create_sqe(ADMIN);
@@ -324,7 +318,6 @@ void nvme_setup_io_sq() {
 
     //getting physical memory where completion data structure will be written by the controller
     uint64_t io_sq_phy_addr = (uint64_t) pmm_request_page();
-    memset((void*) P2V(io_sq_phy_addr), 0, 4096);
 
     nvme_sqe_t* cmd = nvme_create_sqe(ADMIN);
 
@@ -514,8 +507,6 @@ void nvme_test_rw() {
 
     k_printf("[TEST] Writing pattern to LBA 5...\n");
     nvme_write_sector(5, phys_addr);
-    
-    memset(virt_addr, 0, 4096);
     
     k_printf("[TEST] Reading back from LBA 5...\n");
     nvme_read_sector(5, phys_addr);

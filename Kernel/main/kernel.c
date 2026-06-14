@@ -233,19 +233,8 @@ void setup_memory_management(){
     //     io_print("PMM RECYCLE\n");
     // }
 
-    uint64_t m_map_size = memory_get_m_size(&boot_info);
-
-    paging_init(
-        boot_info.frame_buffer.frame_buffer_base, 
-        boot_info.frame_buffer.frame_buffer_size,
-        m_map_size
-    );
-
-    void* heap_start = pmm_request_page();
-    for(int i = 0; i < 9; i++) pmm_request_page();
-
-    uint64_t heap_start_virt_addr = P2V(heap_start);
-    heap_init((void*)heap_start_virt_addr, 4096 * 10);
+    paging_init(&boot_info);
+    heap_init();
 
     // code to test heap allocation and de-allocation
     // void* ptr_a = heap_kmalloc(10);
@@ -306,15 +295,15 @@ void kernel_start(boot_info_t* boot_info_recieved){
 
     // create_task(&task_A);
 
-    nvme_setup();
+    /* nvme_setup();
     gpt_scan_partition_table(1);
     fat32_init(2048);
-    font_renderer_clear_screen();
+    font_renderer_clear_screen(); */
 
-    k_printf("[Kernel] Spawning User Shell...\n");
+    // k_printf("[Kernel] Spawning User Shell...\n");
 
     // Create the task passing the function pointer
-    create_user_task(&user_shell_main);
+    // create_user_task(&user_shell_main);
 
     while(1);
 

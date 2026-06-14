@@ -31,7 +31,6 @@ void fat32_read_bpb(uint64_t partition_start_lba){
     //getting physical memory to read data into
     uint64_t buffer_phys = (uint64_t)pmm_request_page();
     uint64_t buffer_virt = P2V(buffer_phys);
-    memset((void*)buffer_virt, 0, 4096);
 
 
     // The BPB is strictly at offset 0 of the partition.
@@ -112,7 +111,6 @@ uint32_t fat32_find_next_cluster(uint32_t prev_cluster){
 
     uint64_t buffer_phys = (uint64_t)pmm_request_page();
     uint64_t buffer_virt = P2V(buffer_phys);
-    memset((void*)buffer_virt, 0, 4096);
 
     uint32_t fat_byte_offset = FAT_BYTES_OFFSET(prev_cluster);
     uint32_t fat_sector_offset = FAT_SECTOR_OFFSET(fat_byte_offset);
@@ -157,7 +155,6 @@ uint32_t fat32_find_free_cluster() {
     
     uint64_t buffer_phys = (uint64_t)pmm_request_page();
     uint64_t buffer_virt = P2V(buffer_phys);
-    memset((void*) buffer_virt, 0, 4096);
     uint32_t* fat_table = (uint32_t*)buffer_virt;
 
     int entries_per_sector = bytes_per_sector / 4; //each entry is 4 bytes
@@ -239,7 +236,6 @@ uint64_t fat32_find_file(uint32_t dir_loc_cluster, char* file_name){
 
     uint64_t buffer_phys = (uint64_t)pmm_request_page();
     uint64_t buffer_virt = P2V(buffer_phys);
-    memset((void*)buffer_virt, 0, 4096);
 
     uint32_t current_cluster = dir_loc_cluster;
 
@@ -307,7 +303,6 @@ void fat32_read_file(uint32_t cluster, char* file_name){
 
     uint64_t buffer_phys = (uint64_t)pmm_request_page();
     uint64_t buffer_virt = P2V(buffer_phys);
-    memset((void*)buffer_virt, 0, 4096);
     
     uint64_t file_cluster_size = fat32_find_file(cluster, file_name);
     uint32_t file_cluster = (uint32_t) (file_cluster_size & 0xFFFFFFFF);
@@ -390,7 +385,6 @@ int fat32_add_directory_entry(char* filename, uint32_t directory_loc_cluster, ui
 
     uint64_t buffer_phys = (uint64_t)pmm_request_page();
     uint64_t buffer_virt = P2V(buffer_phys);
-    memset(buffer_virt, 0, 4096);
 
     uint32_t dir_cluster = directory_loc_cluster;
     uint32_t dir_sector_offset = FILE_SECTOR_OFFSET(directory_loc_cluster);
@@ -474,7 +468,6 @@ int fat32_add_directory_entry(char* filename, uint32_t directory_loc_cluster, ui
 void fat32_zero_cluster(uint32_t cluster_number) {
     uint64_t buffer_phys = (uint64_t)pmm_request_page();
     uint64_t buffer_virt = P2V(buffer_phys);
-    memset((void*)buffer_virt, 0, 4096); // Clear memory
 
     uint32_t sector_offset = FILE_SECTOR_OFFSET(cluster_number);
     uint64_t lba = FILE_START_LBA(sector_offset);
@@ -583,7 +576,6 @@ void fat32_list_all_entries(uint32_t dir_cluster){
 
     uint64_t buffer_phys = (uint64_t)pmm_request_page();
     uint64_t buffer_virt = P2V(buffer_phys);
-    memset((void*)buffer_virt, 0, 4096);
     
     uint64_t dir_sector_offset = FILE_SECTOR_OFFSET(dir_cluster);
     uint64_t dir_start_lba = FILE_START_LBA(dir_sector_offset);

@@ -19,14 +19,10 @@ void mm_utils_iterator(boot_info_t* boot_info, uint64_t* dependency_ptr, int (*o
 
         memory_descriptor_t* desc = (memory_descriptor_t*) ((uint64_t)boot_info->m_map + (i * m_map_desc_size));
 
-        if(desc->type == EFI_CONVENTIONAL_MEMORY){
+        int result =  operation(desc, dependency_ptr);
 
-            int result =  operation(desc, dependency_ptr);
-
-            if(result == KILL_LOOP){
-                break;
-            }
-
+        if(result == KILL_LOOP){
+            break;
         }
 
     }
@@ -48,22 +44,26 @@ int mm_utils_find_segment(memory_descriptor_t* desc, uint64_t* context){
     //first element is required segment size, second is the phsyical start address that we want
     //uint64_t context[2] = { mininmum_segment_size, 0 };
 
-    if (context[1] != 0) {
-        return KILL_LOOP; 
-    }
+    if(desc->type == EFI_CONVENTIONAL_MEMORY){
 
-    if (desc->physical_start < KERNEL_PHSY_BASE) {
-        return CONTINUE;
-    }
+        if (context[1] != 0) {
+            return KILL_LOOP; 
+        }
 
-    uint64_t segment_size = desc->number_of_pages * 4096;
-    
-    if (segment_size > context[0]){
+        if (desc->physical_start < KERNEL_PHSY_BASE) {
+            return CONTINUE;
+        }
 
-        context[1] = desc->physical_start; 
+        uint64_t segment_size = desc->number_of_pages * 4096;
         
-        return KILL_LOOP; 
+        if (segment_size > context[0]){
+            context[1] = desc->physical_start; 
+            
+            return KILL_LOOP; 
+        }
+
     }
 
     return CONTINUE;
+
 }

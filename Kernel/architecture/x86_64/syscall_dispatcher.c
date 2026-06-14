@@ -78,7 +78,7 @@ void dispatch_brk(trap_frame_t* frame){
             return; 
         }
 
-        paging_map_page(current_task->pml4, page, (uint64_t)phys_frame, PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER);
+        paging_map_page(current_task->pml4, page, (uint64_t)phys_frame, PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER, KB_4);
     }
 
     current_task->heap_end = new_break;
