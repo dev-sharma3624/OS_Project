@@ -120,8 +120,6 @@ void* pmm_request_page(){
         uint64_t address = first_free_index * 4096;
 
         PAGE_ALLOCATE();
-
-        memset((void*) address, 0, 4096); //clearing the page
         return (void*) address;
     }
 }

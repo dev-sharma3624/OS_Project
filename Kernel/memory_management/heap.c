@@ -2,6 +2,7 @@
 #include <memory_management/heap.h>
 #include <memory_management/pmm.h>
 #include <memory_management/paging.h>
+#include <memory_management/memory.h>
 
 #define PAGE_SIZE 4096
 #define HEADER_SIZE() sizeof(heap_segment_header_t)
@@ -18,6 +19,8 @@ size_t get_heap_size(){
 void heap_init(){
     
     uint64_t heap_start = (uint64_t) pmm_request_page();
+    memset( (void*) P2V_DIRECT(heap_start), 0, PAGE_SIZE);
+
     paging_map_page(
         get_kernel_page_table(),
         HEAP_START_ADDRESS,
@@ -69,7 +72,7 @@ void heap_expand(size_t expansion_size){
 
     for(size_t i = 0; i < total_pages; i++){
         void* phys_page = pmm_request_page();
-
+        memset( (void*) P2V_DIRECT(phys_page), 0, PAGE_SIZE);
         paging_map_page(
             get_kernel_page_table(),
             (void*) ((size_t)heap_end_address + (i * PAGE_SIZE)),

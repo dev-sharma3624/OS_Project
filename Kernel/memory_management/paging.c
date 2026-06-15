@@ -43,8 +43,10 @@ void paging_set_new_page_table(paging_page_table_t* page_table, uint64_t index, 
     void* new_page_table = NULL; //corresponding virtual address
 
     if(!cr3_loaded){
+        memset( (void*) P2V(new_page_table), 0, 4096);
         new_page_table = (void*) P2V((uint64_t)new_page_table_addr);
-    }else{
+    }else{    
+        memset( (void*) P2V_DIRECT(new_page_table_addr), 0, 4096);
         new_page_table = (void*) P2V_DIRECT((uint64_t)new_page_table_addr);
     }
 
