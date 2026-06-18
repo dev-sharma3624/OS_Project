@@ -1,5 +1,6 @@
 #include <typedefs.h>
 #include <drivers/nvme.h>
+#include <drivers/nvme_interface.h>
 #include <drivers/pci.h>
 #include <memory_management/paging.h>
 #include <memory_management/pmm.h>
@@ -25,7 +26,6 @@ typedef enum {
 
 static pci_device_info_t nvme;
 static uint32_t stride; //in bytes
-static uint32_t sector_size; //in bytes
 
 static nvme_state_t nvme_admin_state;
 static nvme_state_t nvme_io_state;
@@ -62,7 +62,7 @@ void print_nvme_logs1(nvme_registers_t* nvme_regs){
 
 uint64_t nvme_map_pages(uint64_t physical_addr){
 
-    uint64_t nvme_virt_addr = P2V(physical_addr);
+    uint64_t nvme_virt_addr = P2V_DIRECT(physical_addr);
 
     //mapping 4 pages to have enough space to make up for huge strides between registers
     //and can easily have mulitple doorbels and queues for a multi-core environment
@@ -132,6 +132,9 @@ void nvme_setup_admin_sc_queues(nvme_registers_t* nvme_regs){
     uint64_t* submission_queue = (uint64_t*) pmm_request_page();
     uint64_t* completion_queue = (uint64_t*) pmm_request_page();
 
+    memset((void*) P2V_DIRECT((uint64_t)submission_queue), 0, 4096);
+    memset((void*) P2V_DIRECT((uint64_t)completion_queue), 0, 4096);
+
     //admin submission queue size
     //one entry in submission queue is 64 bytes => 4096(page size) / 64 = 64 slots
     //asqs is 0 based that is why 63 (0x3F)
@@ -166,8 +169,8 @@ void nvme_setup_admin_sc_queues(nvme_registers_t* nvme_regs){
         __asm__ volatile("pause");
     }
 
-    nvme_admin_state.sq_virtual_addr = (uint64_t*) P2V(submission_queue);
-    nvme_admin_state.cq_virtual_addr = (uint64_t*) P2V(completion_queue);
+    nvme_admin_state.sq_virtual_addr = (uint64_t*) P2V_DIRECT(submission_queue);
+    nvme_admin_state.cq_virtual_addr = (uint64_t*) P2V_DIRECT(completion_queue);
     nvme_admin_state.sq_tail = 0;
     nvme_admin_state.cq_head = 0;
     nvme_admin_state.sq_size = asqs + 1;
@@ -223,7 +226,7 @@ void nvme_ring_sq_doorbell(queue_type_t queue_type){
     current_state->sq_tail = (current_state->sq_tail + 1) % current_state->sq_size;
 
     uint32_t doorbell_offset = 0x1000 + (2 * qid * stride);
-    volatile uint32_t* sq_tail_doorbell = (uint32_t*) (P2V(nvme.physical_address) + doorbell_offset);
+    volatile uint32_t* sq_tail_doorbell = (uint32_t*) (P2V_DIRECT(nvme.physical_address) + doorbell_offset);
     *sq_tail_doorbell = current_state->sq_tail;
 }
 
@@ -278,7 +281,7 @@ void nvme_completion_poll(queue_type_t queue_type){
 
     //notifying the device that entries till this index have been processed
     uint32_t doorbell_offset = 0x1000 + (((2 * qid) + 1) * stride);
-    volatile uint32_t* cq_head_doorbell = (uint32_t*) (P2V(nvme.physical_address) + doorbell_offset);
+    volatile uint32_t* cq_head_doorbell = (uint32_t*) (P2V_DIRECT(nvme.physical_address) + doorbell_offset);
     *cq_head_doorbell = current_state->cq_head;
     
 }
@@ -287,6 +290,7 @@ void nvme_setup_io_cq(){
 
     //gettin physical memory where submission data structure will be written by the driver
     uint64_t io_cq_phy_addr = (uint64_t) pmm_request_page();
+    memset((void*) P2V_DIRECT(io_cq_phy_addr), 0, 4096);
 
     //creating the a new empty submission queue entry
     nvme_sqe_t* cmd = nvme_create_sqe(ADMIN);
@@ -305,7 +309,7 @@ void nvme_setup_io_cq(){
 
     nvme_completion_poll(ADMIN);
 
-    nvme_io_state.cq_virtual_addr = P2V(io_cq_phy_addr);
+    nvme_io_state.cq_virtual_addr = P2V_DIRECT(io_cq_phy_addr);
     nvme_io_state.cq_head = 0;
     nvme_io_state.cq_size = 256;
     nvme_io_state.phase = 1;
@@ -318,6 +322,7 @@ void nvme_setup_io_sq() {
 
     //getting physical memory where completion data structure will be written by the controller
     uint64_t io_sq_phy_addr = (uint64_t) pmm_request_page();
+    memset((void*) P2V_DIRECT(io_sq_phy_addr), 0, 4096);
 
     nvme_sqe_t* cmd = nvme_create_sqe(ADMIN);
 
@@ -340,7 +345,7 @@ void nvme_setup_io_sq() {
     nvme_ring_sq_doorbell(ADMIN);
     nvme_completion_poll(ADMIN);
     
-    nvme_io_state.sq_virtual_addr = P2V(io_sq_phy_addr);
+    nvme_io_state.sq_virtual_addr = P2V_DIRECT(io_sq_phy_addr);
     nvme_io_state.sq_tail = 0;
     nvme_io_state.sq_size = 64;
     
@@ -408,6 +413,7 @@ void nvme_command_identify(identify_ds_type return_type){
 
     //location where driver will write the data in memory
     uint64_t buffer = (uint64_t) pmm_request_page();
+    memset((void*) P2V_DIRECT(buffer), 0, 4096);
 
     //adding a new request to the sumbission queue
     nvme_sqe_t* cmd = nvme_create_sqe(ADMIN);
@@ -428,16 +434,16 @@ void nvme_command_identify(identify_ds_type return_type){
     switch (return_type){
 
         case CONTROLLER:
-            nvme_identify_data_t* identify_data_virt = (nvme_identify_data_t*) P2V(buffer);
+            nvme_identify_data_t* identify_data_virt = (nvme_identify_data_t*) P2V_DIRECT(buffer);
             print_identify_data(identify_data_virt);
             break;
 
         case NAMESPACE:
-            nvme_identify_ns_t* identify_ns_virt = (nvme_identify_ns_t*) P2V(buffer);
+            nvme_identify_ns_t* identify_ns_virt = (nvme_identify_ns_t*) P2V_DIRECT(buffer);
             uint8_t current_idx = identify_ns_virt->formatted_lba_size & 0x0F;
             uint8_t power_of_2 = identify_ns_virt->lba_formats[current_idx].lba_data_size;
-            sector_size = 1 << power_of_2;
-            k_printf("Sector size (in bytes): %d\n", sector_size);
+            nvme_interface_set_sector_size((uint32_t)1 << power_of_2);
+            k_printf("Sector size (in bytes): %d\n", 1 << power_of_2);
             break;
 
     }
@@ -497,7 +503,8 @@ void nvme_test_rw() {
     k_printf("\n[TEST] Starting NVMe Read/Write Test...\n");
 
     uint64_t phys_addr = (uint64_t)pmm_request_page();
-    uint64_t* virt_addr = (uint64_t*)P2V(phys_addr);
+    uint64_t* virt_addr = (uint64_t*)P2V_DIRECT(phys_addr);
+    memset((void*) virt_addr, 0, 4096);
 
     char* msg = "ARCHITECT_WAS_HERE";
     k_strcpy((char*)virt_addr, msg);
@@ -549,9 +556,5 @@ void nvme_setup(){
     nvme_setup_io_cq(nvme);
     nvme_setup_io_sq(nvme);
 
-    // nvme_test_rw(nvme);
-}
-
-uint32_t nvme_get_sector_size(){
-    return sector_size;
+    nvme_test_rw(nvme);
 }

@@ -22,7 +22,7 @@ int fs_create_file(char* recieved_file_name, char* content){
     return result;
 }
 
-void fs_read_file(char* recieved_file_name){
+void fs_read_file(char* recieved_file_name, uint64_t buffer){
     char* name_and_ext[2];
     char fileName[12];
     str_split(recieved_file_name, '.', name_and_ext);
@@ -33,7 +33,7 @@ void fs_read_file(char* recieved_file_name){
     str_pad(fileName, ' ', 8);
     str_append(fileName, name_and_ext[1]);
 
-    fat32_read_file(current_dir_cluster, fileName);
+    fat32_read_file(current_dir_cluster, fileName, buffer);
 }
 
 void fs_ls(){
