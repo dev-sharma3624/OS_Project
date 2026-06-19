@@ -2,6 +2,7 @@
 #include <file_system/gpt.h>
 #include <memory_management/pmm.h>
 #include <memory_management/memory.h>
+#include <drivers/nvme_interface.h>
 #include <drivers/nvme.h>
 #include <libs/k_printf.h>
 
@@ -10,7 +11,7 @@ void gpt_scan_partition_table(uint32_t nsid){
 
     // requesting memory
     uint64_t buffer_phy_addr = (uint64_t) pmm_request_page();
-    uint64_t buffer_virt_addr = P2V(buffer_phy_addr);
+    uint64_t buffer_virt_addr = P2V_DIRECT(buffer_phy_addr);
 
     //GPT header is always at LBA 1
     nvme_read_sector(1, buffer_phy_addr);
@@ -37,7 +38,7 @@ void gpt_scan_partition_table(uint32_t nsid){
              gpt_header->partition_entry_lba);
 
     //calculating number of entries per sector
-    int entries_per_sector = nvme_get_sector_size() / entry_size; 
+    int entries_per_sector = nvme_interface_get_sector_size() / entry_size; 
     int current_lba = table_lba;
     int entries_checked = 0;
 
