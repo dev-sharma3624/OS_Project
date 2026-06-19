@@ -66,10 +66,8 @@ paging_page_table_t* get_table_ptr(paging_map_entry_t* entry){
     uint64_t entry_address = entry->address << 12;
 
     if(!cr3_loaded){
-        print_address_hex(P2V(entry_address));
         return (paging_page_table_t*) P2V(entry_address);
     }else{
-        print_address_hex(P2V_DIRECT(entry_address));
         return (paging_page_table_t*) P2V_DIRECT(entry_address);
     }
 
@@ -180,11 +178,25 @@ void paging_init(boot_info_t* boot_info){
         );
     }
 
+    uint64_t font_ptr = (uint64_t) boot_info->font;
+
+    if(font_ptr % 4096 != 0){
+        font_ptr = font_ptr & (~0x0FFF);
+    }
+
+    paging_map_page(
+        kernel_pml4,                                         //page table
+        (void*)font_ptr,                                     //virtual address
+        V2P(font_ptr),                                       //phsyical address
+        PT_FLAG_PRESENT,                                     //flags
+        KB_4
+    );
+
 
     paging_map_page(
         kernel_pml4,                                                //page table
-        (void*)P2V((uint64_t)boot_info->font->header),              //virtual address
-        (uint64_t)boot_info->font->header,                          //phsyical address
+        (void*)boot_info->font->header,                             //virtual address
+        V2P((uint64_t)boot_info->font->header),                     //phsyical address
         PT_FLAG_PRESENT,                                            //flags
         KB_4
     );
@@ -192,22 +204,24 @@ void paging_init(boot_info_t* boot_info){
     uint64_t font_base = (uint64_t) boot_info->font->glyph_buffer;
     uint64_t font_size = 0;
     if(boot_info->font->header->mode == 1){
-        font_size = boot_info->font->header->char_size * 512;
+        font_size = (uint64_t)boot_info->font->header->char_size * (uint64_t)512;
     }else{
-        font_size = boot_info->font->header->char_size * 256;
+        font_size = (uint64_t)boot_info->font->header->char_size * (uint64_t)256;
     }
 
     if(font_base % 4096 != 0){
         font_base = font_base & (~0x0FFF);
     }
 
-    for(uint64_t addr = 0; addr < font_size; addr += 0x200000){
+    font_size = (font_size + 4096) & (~0x0FFF);
+
+    for(uint64_t addr = 0; addr < font_size; addr += 4096){
         paging_map_page(
             kernel_pml4,                                                //page table
-            (void*)P2V(font_base + addr),                               //virtual address
-            font_base + addr,                                           //phsyical address
-            PT_FLAG_PRESENT | PT_FLAG_HUGE_PAGE,                        //flags
-            MB_2
+            (void*)(font_base + addr),                                  //virtual address
+            V2P(font_base + addr),                                      //phsyical address
+            PT_FLAG_PRESENT,                                            //flags
+            KB_4
         );
     }
 

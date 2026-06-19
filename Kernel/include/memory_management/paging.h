@@ -3,10 +3,6 @@
 #include "../../boot_info.h"
 #include <typedefs.h>
 
-#define DIRECT_MAP_BASE 0xFFFF800000000000
-#define P2V_DIRECT(a) ((uint64_t)(a) + DIRECT_MAP_BASE)
-#define V2P_DIRECT(a) ((uint64_t)(a) - DIRECT_MAP_BASE)
-
 typedef enum PAGE_SIZE{
     KB_4,
     MB_2,

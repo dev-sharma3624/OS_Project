@@ -3,6 +3,10 @@
 #include <typedefs.h>
 #include "../../boot_info.h"
 
+#define DIRECT_MAP_BASE 0xFFFF800000000000
+#define P2V_DIRECT(a) ((uint64_t)(a) + DIRECT_MAP_BASE)
+#define V2P_DIRECT(a) ((uint64_t)(a) - DIRECT_MAP_BASE)
+
 uint64_t memory_get_m_size(boot_info_t* boot_info);
 uint64_t memory_find_suitable_m_segment(boot_info_t* boot_info, uint64_t mininmum_segment_size);
 void memset(void* start_address, uint64_t value, size_t limit);
