@@ -1,4 +1,5 @@
 #include <drivers/font_renderer.h>
+#include <typedefs.h>
 
 basic_renderer_t global_renderer;
 
@@ -114,7 +115,10 @@ void font_renderer_put_char(char c){
     usigned char can also be used in place of char, it wouldn't make a difference since we're not actually
     manipulating the data that is present there but only using it for comparison
     */
-    char* font_ptr = (char*)global_renderer.font->glyph_buffer + ( c * global_renderer.font->header->char_size);
+   
+   uint64_t base = (uint64_t)global_renderer.font->glyph_buffer;
+   uint64_t offset = (uint64_t)global_renderer.font->header->char_size * (uint8_t)c;
+   char* font_ptr = (char*) (base + offset);
 
     // moving 16 times vertically because every character in psf1 font is 16 bytes long
     for(long int y = 0; y < 16; y++){
