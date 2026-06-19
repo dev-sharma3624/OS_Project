@@ -46,7 +46,7 @@ void fat32_calc_init_parameters(fat32_bpb_t* bpb, uint64_t partition_start_lba){
 }
 
 // fat table sector offset at results[0], entry offset at results[1], lba offset at results[2]
-void fat32_calc_fat_table_offsets(uint32_t results[], uint32_t cluster_no){
+void fat32_calc_fat_table_offsets(uint64_t results[], uint32_t cluster_no){
 
     uint32_t fat_byte_offset = FAT_BYTES_OFFSET(cluster_no);
     uint32_t fat_sector_offset = FAT_SECTOR_OFFSET(fat_byte_offset);
@@ -58,7 +58,7 @@ void fat32_calc_fat_table_offsets(uint32_t results[], uint32_t cluster_no){
 }
 
 // dir sector offset at results[0], lba offset at results[1]
-void fat32_calc_dir_offsets(uint32_t results[], uint32_t cluster_no){
+void fat32_calc_dir_offsets(uint64_t results[], uint32_t cluster_no){
 
     //the first lba at which file chain begins in data region
     uint32_t dir_sector_offset = FILE_SECTOR_OFFSET(cluster_no);
