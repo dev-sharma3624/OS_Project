@@ -10,6 +10,10 @@ extern tss_t tss;
 
 extern void switch_task(tcb_t* old_task, tcb_t* next_task);
 
+static inline void load_cr3(uint64_t physical_pml4) {
+    __asm__ volatile("mov %0, %%cr3" : : "r"(physical_pml4) : "memory");
+}
+
 void schedule(){
 
     if(current_task == NULL || task_list_head == NULL){
@@ -40,6 +44,9 @@ void schedule(){
     next_task->task_state = TASK_RUNNING;
 
     tss.rsp0 = (uint64_t)next_task->stack_base + 4096;
+    if (old_task->pml4 != next_task->pml4) {
+        load_cr3((uint64_t)next_task->pml4);
+    }
     
     switch_task(old_task, next_task);
 
