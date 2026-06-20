@@ -556,5 +556,5 @@ void nvme_setup(){
     nvme_setup_io_cq(nvme);
     nvme_setup_io_sq(nvme);
 
-    nvme_test_rw(nvme);
+    // nvme_test_rw(nvme);
 }

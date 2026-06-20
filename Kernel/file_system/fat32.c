@@ -27,7 +27,6 @@ void fat32_read_bpb(uint64_t partition_start_lba){
     uint8_t* raw = (uint8_t*)buffer_virt;
     if (raw[510] != 0x55 || raw[511] != 0xAA) {
         k_printf("FAT32: Invalid Boot Signature! Found %x %x (Expected 0x55 0xAA)\n", raw[510], raw[511]);
-        // pmm_free_page(buffer_phys);
         return;
     }
 
@@ -272,28 +271,23 @@ void fat32_read_file(uint32_t cluster, char* file_name, uint64_t buffer){
     uint64_t file_sector_offset = file_sector_lba_offsets[0];
     uint64_t file_start_lba = file_sector_lba_offsets[1];
 
+    uint64_t current_memory_dest = buffer;
+
     while(bytes_read < file_size){
 
         for(int i = 0; i < fat32_calc_get_fat_sectors_per_cluster(); i++){
 
             uint64_t read_lba = file_start_lba + i;
-            ft_nvm_bridge_read(buffer, read_lba, fat32_calc_get_bytes_per_sector());
-
-
-            char* content = (char*)buffer;
-            int loop_length;
+            ft_nvm_bridge_read(current_memory_dest, read_lba, fat32_calc_get_bytes_per_sector());
 
             if((file_size - bytes_read) <= fat32_calc_get_bytes_per_sector()){
-                loop_length = (file_size - bytes_read);
+                bytes_read += (file_size - bytes_read);
             }else{
-                loop_length = fat32_calc_get_bytes_per_sector();
+                bytes_read += fat32_calc_get_bytes_per_sector();
             }
 
-            for(int b=0; b < loop_length; b++) {
-                k_printf("%c", content[b]);
-            }
+            current_memory_dest += fat32_calc_get_bytes_per_sector();
 
-            bytes_read += loop_length;
             if(bytes_read >= file_size){
                 break;
             }
