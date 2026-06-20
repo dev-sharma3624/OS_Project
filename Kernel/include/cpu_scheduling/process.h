@@ -30,4 +30,5 @@ typedef struct tcb_t {
 
 void multitask_init();
 void create_task(void (*entry_point) (void)); // parameter -> pointer to a function that returns void
-void create_user_task(void (*entry_point)(void));
+void create_user_task(uint64_t payload_phys_addr, size_t no_of_pages, paging_page_table_t* process_pml4_phys);
+uint64_t* create_user_address_space();

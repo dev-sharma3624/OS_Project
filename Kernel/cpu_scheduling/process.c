@@ -10,6 +10,9 @@
 #define USER_CS (0x20 | 3) 
 #define USER_DS (0x28 | 3)
 
+#define USER_CODE_VIRT  0x0000000000400000 // Standard ELF load address
+#define USER_STACK_VIRT 0x00007FFFFFFFF000 // A high address in the lower half
+
 extern uint64_t _KernelEnd;
 
 tcb_t* current_task = NULL;
@@ -30,9 +33,9 @@ void multitask_init(){
     current_task = kernel_task;
     task_list_head = kernel_task;
 
-    current_task->pml4 = get_kernel_page_table(); 
+    current_task->pml4 = (paging_page_table_t*) V2P((uint64_t)get_kernel_page_table()); 
     
-    current_task->heap_end = 0x10000000;
+    current_task->heap_end = get_heap_end_address();
 
 }
 
@@ -68,6 +71,7 @@ void create_task(void (*entry_point) (void)){
     new_task->rsp = stack_top;
     new_task->pid = next_pid++;
     new_task->task_state = TASK_READY;
+    new_task->pml4 = (paging_page_table_t*) V2P((uint64_t)get_kernel_page_table());
 
     tcb_t* temp = task_list_head;
     while (temp->next != task_list_head) {
@@ -78,82 +82,69 @@ void create_task(void (*entry_point) (void)){
     
 }
 
-void create_user_task(void (*entry_point)(void)) {
-    // 1. Allocate TCB
+uint64_t* create_user_address_space() {
+
+    uint64_t* new_pml4_phys = (uint64_t*)pmm_request_page();
+    uint64_t* new_pml4_virt = (uint64_t*)P2V_DIRECT((uint64_t)new_pml4_phys);
+
+    memset((void*) new_pml4_virt, 0, 4096);
+
+    uint64_t* kernel_pml4_virt = (uint64_t*) get_kernel_page_table();
+    for (int i = 256; i < 512; i++) {
+        new_pml4_virt[i] = kernel_pml4_virt[i];
+    }
+
+    return new_pml4_phys; 
+}
+
+void create_user_task(uint64_t payload_phys_addr, size_t no_of_pages, paging_page_table_t* process_pml4_phys) {
+
     tcb_t* new_task = (tcb_t*) heap_kmalloc(sizeof(tcb_t));
-    
-    // 2. Allocate KERNEL Stack (Used when syscalls/interrupts happen)
+
+    new_task->pml4 = process_pml4_phys;
+
+    uint64_t u_stack_phys = (uint64_t) pmm_request_page();
+    memset((void*) P2V_DIRECT(u_stack_phys), 0, 4096);
+    paging_map_page(
+        P2V_DIRECT(process_pml4_phys), 
+        USER_STACK_VIRT, 
+        u_stack_phys, 
+        PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER, 
+        KB_4
+    );
+    uint64_t u_stack_top = USER_STACK_VIRT + 4096;
+
+    uint64_t* u_stack_phys_top = (uint64_t*)P2V_DIRECT(u_stack_phys + 4096 - 8);
+    *u_stack_phys_top = 0;
+
     void* k_stack_bottom = heap_kmalloc(4096);
     uint64_t k_stack_top = (uint64_t)k_stack_bottom + 4096;
 
-    // 3. Allocate USER Stack (Used by the shell/app)
-    // In a real OS, we'd map a page at a high address. 
-    // For now, we alloc a frame and use its physical address (Identity Map cheat).
-    uint64_t u_stack_phys = (uint64_t) pmm_request_page();
-
-    paging_map_page(
-        get_kernel_page_table(), 
-        (uint64_t) u_stack_phys, // Virt
-        (uint64_t) u_stack_phys, // Phys
-        PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER, // <--- ALLOW USER
-        KB_4
-    );
-
-    void* u_stack_bottom = P2V(u_stack_phys);
-    uint64_t u_stack_top = (uint64_t)u_stack_bottom + 4096;
-
-    uint64_t code_phys = V2P((uint64_t)entry_point);
-    uint64_t code_virt = (uint64_t)entry_point; // Use the same address for simplicity
-
-    // Force map the code page as USER accessible
-    paging_map_page(
-        get_kernel_page_table(), 
-        code_virt,
-        code_phys,
-        PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER, // <--- ALLOW USER
-        KB_4
-    );
-
-    // 4. Setup the Trap Frame on the KERNEL Stack
     k_stack_top -= sizeof(trap_frame_t);
     trap_frame_t* frame = (trap_frame_t*)k_stack_top;
 
-    // Zero out the frame to avoid garbage values in registers
-    // (Assuming you have memset, otherwise do it manually)
     memset(frame, 0, sizeof(trap_frame_t));
 
     // --- THE RING 3 SETUP ---
-    frame->rip = code_virt;
+    frame->rip = USER_CODE_VIRT;
     frame->cs  = USER_CS;     // Ring 3 Code
     frame->r_flags = 0x202;    // Interrupts Enabled
-    frame->rsp = u_stack_top; // Point to USER Stack!
+    frame->rsp = u_stack_top - 8; // Point to USER Stack!
     frame->ss  = USER_DS;     // Ring 3 Data
 
-    // Initialize segments to User Data (important for some CPUs)
-    // If your trap_frame doesn't have these, you might need to push them in asm
-    // frame->ds = USER_DS; 
-    // frame->es = USER_DS;
-
-    // 5. Context Switch Setup (The "glue" logic)
-    // This matches your existing logic for kernel threads
     k_stack_top -= sizeof(uint64_t);
     *(uint64_t*)k_stack_top = (uint64_t)interrupt_return;
     
-    // Reserve space for the registers popped by 'interrupt_return' (r15..r12, etc)
-    // Adjust '6' to however many regs your context switch pops before iretq
     k_stack_top -= sizeof(uint64_t) * 6; 
 
-    // 6. Save State in TCB
     new_task->rsp = k_stack_top; // Scheduler switches KERNEL stacks
     new_task->pid = next_pid++;
     new_task->task_state = TASK_READY;
-    new_task->pml4 = get_kernel_page_table(); // Share VM for now
+    new_task->stack_base = k_stack_bottom; // Remember for free()
     
     // Initialize Heap for sbrk (User standard: after kernel end)
-    new_task->heap_end = ((uint64_t)&_KernelEnd + 0xFFF) & ~0xFFF;
-    new_task->stack_base = k_stack_bottom; // Remember for free()
+    new_task->heap_end = USER_CODE_VIRT + (no_of_pages * 4096);
 
-    // 7. Add to List (Circular)
     tcb_t* temp = task_list_head;
     if (temp == NULL) {
         // Handle empty list case if necessary
