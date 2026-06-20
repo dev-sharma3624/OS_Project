@@ -84,7 +84,7 @@ void paging_map_page(paging_page_table_t* pml4, void* virtual_addr_ptr, uint64_t
     //----------------------------PML4 (ROOT LEVEL)--------------------------------------------------
 
     if(!pml4->entries[level_4_index].present){ //setting new page table if not present
-        paging_set_new_page_table(pml4, level_4_index, PT_FLAG_PRESENT | PT_FLAG_READ_WRITE);
+        paging_set_new_page_table(pml4, level_4_index, PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER);
     }
     paging_map_entry_t pml4_entry = pml4->entries[level_4_index]; //getting pdp entry
 
@@ -92,7 +92,7 @@ void paging_map_page(paging_page_table_t* pml4, void* virtual_addr_ptr, uint64_t
 
     paging_page_table_t* pdp = get_table_ptr(&pml4_entry); //going to address provided by the above entry
     if(!pdp->entries[level_3_index].present){
-        paging_set_new_page_table(pdp, level_3_index, PT_FLAG_PRESENT | PT_FLAG_READ_WRITE);
+        paging_set_new_page_table(pdp, level_3_index, PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER);
     }
 
    	//-------------------------PAGE DIRECTORY--------------------------------------------------------------
@@ -107,7 +107,7 @@ void paging_map_page(paging_page_table_t* pml4, void* virtual_addr_ptr, uint64_t
    	//------------------------------PAGE TABLE------------------------------------------------------
 
     if(!pd->entries[level_2_index].present){
-        paging_set_new_page_table(pd, level_2_index, PT_FLAG_PRESENT | PT_FLAG_READ_WRITE);
+        paging_set_new_page_table(pd, level_2_index, PT_FLAG_PRESENT | PT_FLAG_READ_WRITE | PT_FLAG_USER_SUPER);
     }
     paging_page_table_t* pt = get_table_ptr(&(pd->entries[level_2_index]));
     paging_set_flags(pt, level_1_index, flags, physical_addr);
