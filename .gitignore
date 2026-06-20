@@ -16,3 +16,5 @@ dist/*
 
 # Ignore system junk
 .DS_Store
+
+debug_build.sh
