@@ -34,8 +34,11 @@ The physical load address (LMA) is set safely at the 128 MB mark (`0x8000000`) t
 | Virtual Address Range | Description | Privilege Level |
 | :--- | :--- | :--- |
 | `0x0000000000000000` - `0x00007FFFFFFFFFFF` | User Space (Ring 3 Processes) | Ring 3 |
+| `...` - `0x00007FFFFFFFF000` | User Space Stack (Strictly positioned) | Ring 3 |
 | `[ Canonical Hole ]` | Non-canonical address gap (Hardware enforces #GP) | N/A |
+| `0xFFFF800000000000` - `...` | Direct Physical Memory Mapping | Ring 0 |
 | `0xFFFFFFFF80000000` - `_KernelEnd` | Kernel Text, Data, and BSS (`.text`, `.rodata`, etc.) | Ring 0 |
+| `0xFFFFFFFF81000000` - `...` | Kernel Heap | Ring 0 |
 
 *(Note: The gap between the upper and lower halves utilizes the x86_64 Canonical Hole. Any erroneous user-space pointers falling into this range physically trigger a General Protection Fault (Interrupt `0x0D`), which the kernel catches to kill the misbehaving process.)*
 
@@ -125,6 +128,46 @@ qemu-system-x86_64 \
   -drive file=nvme.img,format=raw,if=none,id=nvm \
   -device nvme,serial=deadbeef,drive=nvm
 ```
+
+---
+
+---
+
+## 🐛 Debugging (GDB & QEMU)
+This OS is debugged using GDB attached to QEMU. To set up the debugging environment, follow these steps:
+
+**1. Update Build Flags (`build.sh`):**
+Ensure your GCC cross-compiler commands include the following debugging flags:
+* `-g`: Generates the necessary debug symbols.
+* `-O0`: Disables compiler optimizations. This prevents the compiler from reordering instructions or eliminating variables, ensuring you can step through the source code accurately in GDB.
+
+**2. Update QEMU Command:**
+Append these flags when launching QEMU to enable the GDB stub:
+* `-s`: Shorthand for `-gdb tcp::1234` (opens a GDB server on localhost port 1234).
+* `-S`: Freezes the CPU at startup, allowing you to attach GDB and set initial breakpoints before the bootloader even executes.
+
+**3. Attach GDB:**
+Open a new terminal session, navigate to your project directory, and launch your GDB. Run the following commands inside the GDB prompt:
+
+```gdb
+# Load the kernel symbols
+file path/to/your/kernel.elf 
+
+# Connect to the QEMU instance
+target remote localhost:1234
+```
+
+**Common GDB Commands for Bare-Metal Debugging:**
+* `continue` (or `c`): Resume CPU execution.
+* `finish`: Execute until the current function stack frame returns.
+* `step` (or `s`): Step into the next line of C source code.
+* `next` (or `n`): Step over the next line of C source code (does not dive into functions).
+* `stepi` (or `si`): Step exactly one assembly instruction.
+* `nexti` (or `ni`): Step over exactly one assembly instruction.
+* `break <function_name or *0xAddress>` (or `b`): Set a breakpoint.
+* `info breaks`: List all currently active breakpoints.
+* `layout asm`: Open a TUI window showing the live disassembly.
+* `layout regs`: Open a TUI window showing current CPU registers alongside the code.
 
 ---
 
