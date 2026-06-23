@@ -74,14 +74,15 @@ void sys_create_file(char* name, char* content) {
     );
 }
 
-void sys_read_file(char* filename) {
+void sys_read_file(char* filename, uint64_t buffer) {
     asm volatile (
         "mov $6, %%rax\n"      // Syscall number 6
         "mov %0, %%rdi\n"      // Arg 1: Filename
+        "mov %1, %%rsi\n"      //Arg 2: Buffer
         "int $0x80\n"          // Trigger Interrupt
         :
-        : "r"(filename)
-        : "rax", "rdi"
+        : "r"(filename), "r"(buffer)
+        : "rax", "rdi", "rsi"
     );
 }
 

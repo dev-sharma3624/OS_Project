@@ -98,7 +98,8 @@ void dispatch_create_file(trap_frame_t* frame){
 
 void dispatch_read_file(trap_frame_t* frame){
     char* file_name = (char*)frame->rdi;
-    fs_read_file(file_name);
+    uint64_t buffer = frame->rsi;
+    fs_read_file(file_name, buffer);
 }
 
 void dispatch_meminfo(){
