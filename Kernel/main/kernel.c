@@ -19,163 +19,10 @@
 #include <drivers/nvme.h>
 #include <file_system/gpt.h>
 #include <file_system/fat32.h>
-
-extern void user_shell_main();
-
-/* #define MAX_COMMAND_BUFFER 256
-char command_buffer[MAX_COMMAND_BUFFER];
-int buffer_position = 0; */
+#include <file_system/fs_interface.h>
+#include "elf_loader.h"
 
 boot_info_t boot_info;
-
-/* int kernel_str_cmp(const char* str_1, const char* str_2){
-
-    while(*str_1 && (*str_1 == *str_2)){
-        str_1++;
-        str_2++;
-    }
-
-    return *(const unsigned char*) str_1 - *(const unsigned char*)str_2;
-
-}
-
-void kernel_clear_buffer(){
-    for(int i = 0; i < MAX_COMMAND_BUFFER; i++){
-        command_buffer[i] = 0;
-    }
-    buffer_position = 0;
-} */
-
-
-void kernel_print_memory_info() {
-    uint64_t total_memory = free_memory + reserved_memory + used_memory;
-
-    k_printf("\n--- Memory Statistics ---\n");
-    k_printf("Total RAM:    %d MB\n", total_memory / 1024 / 1024);
-    k_printf("Free RAM:     %d MB\n", free_memory / 1024 / 1024);
-    k_printf("Used RAM:     %d KB\n", used_memory / 1024);
-    k_printf("Reserved RAM: %d MB\n", reserved_memory / 1024 / 1024);
-
-    k_printf("-------------------------\n");
-}
-
-/* void background_counter() {
-    int count = 0;
-    while(1) {
-        // Busy wait (approx 1 sec)
-        for(volatile int i=0; i<50000000; i++); 
-        
-        // Print safely
-        // Note: Make sure sys_print uses your lock!
-        sys_print(" [BG] "); 
-        
-        count++;
-    }
-}
-
-void test_user_function() {
-
-    char input_char;
-    char echo_buf[2];
-    echo_buf[1] = 0; // Null terminator
-
-    sys_print("Interactive Shell v1.0\n");
-    sys_print("> ");
-
-    while (1) {
-        // This will BLOCK the process until you press a key!
-        sys_read(&input_char); 
-
-        // Echo it back
-        echo_buf[0] = input_char;
-        sys_print(echo_buf);
-        
-        if (input_char == '\n') {
-             sys_print("> ");
-        }
-    }
-} */
-
-/* // 2. The Switch Function
-void jump_to_user_mode() {
-    
-    // A. Define the Ring 3 Selectors based on your GDT
-    uint64_t user_cs = 0x23; // Index 4 | RPL 3
-    uint64_t user_ds = 0x2B; // Index 5 | RPL 3
-    uint64_t rflags  = 0x202; // Interrupts ENABLED (Bit 9) + Reserved (Bit 1)
-
-    // B. Setup a temporary stack for the user process
-    // (In a real OS, you'd malloc this. For now, a small static array works)
-    static uint8_t user_stack[4096];
-    uint64_t user_rsp = (uint64_t)user_stack + 4096;
-
-    // C. The Target Address
-    uint64_t entry_point = (uint64_t)&test_user_function;
-
-    // D. The "IRETQ" Frame Setup (Inline Assembly)
-    // We push the 5 values in this EXACT order:
-    // SS -> RSP -> RFLAGS -> CS -> RIP
-    asm volatile (
-        // FIX: Use %w0 to grab the lower 16-bits (Word) of the 64-bit register
-        "mov %w0, %%ax\n"  
-        "mov %%ax, %%ds\n"
-        "mov %%ax, %%es\n"
-        "mov %%ax, %%fs\n"
-        "mov %%ax, %%gs\n"
-        
-        // Stack Setup for IRETQ (Must be 64-bit pushes)
-        "pushq %0\n"       // 1. SS (We push the full 64-bit val, CPU uses low 16)
-        "pushq %1\n"       // 2. RSP
-        "pushq %2\n"       // 3. RFLAGS
-        "pushq %3\n"       // 4. CS
-        "pushq %4\n"       // 5. RIP
-        
-        "iretq\n"
-        : 
-        : "r"(user_ds), "r"(user_rsp), "r"(rflags), "r"(user_cs), "r"(entry_point)
-        : "rax", "memory"
-    );
-} */
-
-
-/* void kernel_execute_command(){
-    k_printf("\n");
-
-    if(kernel_str_cmp(command_buffer, "help") == 0){
-        k_printf("Available commands:\n");
-        k_printf(" - help: Show this menu\n");
-        k_printf(" - clear: Clean the screen\n");
-        k_printf(" - reboot: Reboot the CPU\n");
-        k_printf(" - meminfo: See how much RAM is being used\n");
-        k_printf(" - drums of liberation: Awaken the Sun God!\n");
-        k_printf(" - jump\n");
-    }
-
-    else if(kernel_str_cmp(command_buffer, "clear") == 0){
-        font_renderer_clear_screen();
-    }
-
-    else if(kernel_str_cmp(command_buffer, "meminfo") == 0){
-        kernel_print_memory_info();
-    }
-
-    else if(kernel_str_cmp(command_buffer, "drums of liberation") == 0){
-        k_printf("THE ONE PIECE IS REAL!\n");
-    }
-
-    else if(kernel_str_cmp(command_buffer, "jump") == 0){
-        // jump_to_user_mode();
-    }
-
-    else if (buffer_position > 0){
-        k_printf("Unknown command: ");
-        k_printf("%s\n", command_buffer);
-    };
-
-    kernel_clear_buffer();
-    k_printf("Project D> ");
-    
-} */
 
 void task_A() {
     while(1) {
@@ -199,10 +46,10 @@ void sanitize_boot_info(boot_info_t* boot_info_recieved){
     boot_info.m_map_size = boot_info_recieved->m_map_size;
 
     //physical->virtual converision elements
-    boot_info_recieved->font->header = (psf1_header_t*) P2V(boot_info_recieved->font->header);
-    boot_info_recieved->font->glyph_buffer = (void*) P2V(boot_info_recieved->font->glyph_buffer);
+    boot_info.font = (psf1_font_t*) P2V((uint64_t)boot_info_recieved->font);
+    boot_info.font->header = (psf1_header_t*) P2V(boot_info_recieved->font->header);
+    boot_info.font->glyph_buffer = (void*) P2V(boot_info_recieved->font->glyph_buffer);
     boot_info.m_map = (void*) P2V(boot_info_recieved->m_map);
-    boot_info.font = (psf1_font_t*) P2V(boot_info_recieved->font);
 
     //special case, since we need to pass this as physical address for mapping
     boot_info.frame_buffer = boot_info_recieved->frame_buffer;
@@ -222,38 +69,8 @@ void setup_memory_management(){
 
     pmm_init(&boot_info);
 
-    //code to test pmm page allocation, freeing and recycling
-    // void* page1 = pmm_request_page();
-    // void* page2 = pmm_request_page();
-    // void* page3 = pmm_request_page();
-    // void* page4= pmm_request_page();
-    // pmm_free_page(page1);
-    // void* page5 = pmm_request_page();
-    // if(page1 == page5){
-    //     io_print("PMM RECYCLE\n");
-    // }
-
     paging_init(&boot_info);
     heap_init();
-
-    // code to test heap allocation and de-allocation
-    // void* ptr_a = heap_kmalloc(10);
-    // void* ptr_b = heap_kmalloc(20);
-
-    // k_printf("Ptr A: %x\n", (uint64_t)ptr_a);
-    // k_printf("Ptr B: %x\n", (uint64_t)ptr_b);
-
-    // k_printf("Freeing Ptr A...\n");
-    // heap_kfree(ptr_a);
-
-    // void* ptr_c = heap_kmalloc(5);
-    // k_printf("Ptr C: %x\n", (uint64_t)ptr_c);
-
-    // if (ptr_c == ptr_a) {
-    //     k_printf("SUCCESS: Heap reused the freed memory!\n");
-    // } else {
-    //     k_printf("FAIL: Heap created a new block instead of reusing.\n");
-    // }
 
 }
 
@@ -277,15 +94,6 @@ void kernel_start(boot_info_t* boot_info_recieved){
 
     if(!boot_info_recieved) return;
 
-    // Initialize serial port logging, uncomment if needed again
-    // io_init();
-    // io_print("\n[KERNEL] Higher Half Kernel Started!\n");
-    // print_address_hex((void*)boot_info_recieved);
-    // print_dec(99999);
-
-    //enable interrupts
-    __asm__ volatile ("sti");
-
     sanitize_boot_info(boot_info_recieved);
     initialize_desc_tables();
     initialize_drivers();
@@ -293,64 +101,25 @@ void kernel_start(boot_info_t* boot_info_recieved){
     initialize_frame_renderer();
     initialize_multitasking();
 
-    // create_task(&task_A);
+    create_task(&task_A);
 
-    /* nvme_setup();
+    nvme_setup();
     gpt_scan_partition_table(1);
     fat32_init(2048);
-    font_renderer_clear_screen(); */
+    font_renderer_clear_screen();
 
-    // k_printf("[Kernel] Spawning User Shell...\n");
+    uint64_t buffer = heap_kmalloc(25 * 4096);
+    print_address_hex(buffer);
+    fs_read_file("SHL.ELF", buffer);
+    uint64_t* user_table = create_user_address_space();
+    elf_loader_result result = load_user_elf((uint8_t*) buffer, user_table);
+    create_user_task(result.entry_point, result.pages_needed, (paging_page_table_t*) user_table);
+    font_renderer_clear_screen();
 
-    // Create the task passing the function pointer
-    // create_user_task(&user_shell_main);
+    //enable interrupts
+    __asm__ volatile ("sti");
 
     while(1);
-
-    /* k_printf("Project D v0.1. Type 'help'.\nProject D> ");
-    
-    while (1)
-    {
-        uint8_t scan_code = read_key();
-        if(scan_code != 0){
-
-            if(scan_code & 0x80){ //release key code
-                continue;
-            }
-            
-            if(scan_code == 0x0E){ //backspace key
-
-                if(buffer_position > 0){
-
-                    buffer_position--;
-                    command_buffer[buffer_position] = 0;
-
-                    k_printf("\b");
-                }
-            }
-
-            if (scan_code == 0x1C){ //enter key
-                kernel_execute_command();
-                continue;
-            }
-
-            if(scan_code < 0x3A){ //lowercase alphabet keys (not including any special characters, numbers or uppercase)
-                char ascii = scan_code_for_lookup_table[scan_code];
-
-                if(ascii != 0){
-
-                    if(buffer_position < MAX_COMMAND_BUFFER - 1){
-
-                        k_printf("%c", ascii);
-                        command_buffer[buffer_position] = ascii;
-                        buffer_position++;
-
-                    }
-                }
-            }
-        }
-
-    } */
 }
 
     /* 

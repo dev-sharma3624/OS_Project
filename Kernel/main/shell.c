@@ -3,14 +3,15 @@
 
 #define MAX_COMMAND_BUFFER 256
 static char command_buffer[MAX_COMMAND_BUFFER];
+static char buffer[MAX_COMMAND_BUFFER];
 static int buffer_position = 0;
 
 #define PATH 256
 char path[PATH] = "Project D>";
 
-void clear_buffer(){
+void clear_buffer(char bfr[]){
     for(int i = 0; i < MAX_COMMAND_BUFFER; i++){
-        command_buffer[i] = 0;
+        bfr[i] = 0;
     }
     buffer_position = 0;
 }
@@ -62,7 +63,10 @@ void execute_command(){
     else if(k_strcmp(first_arg, "read") == 0){
         char* filename = args[1];
         str_trim(filename);
-        sys_read_file(filename);
+        sys_read_file(filename, buffer);
+        sys_print(buffer);
+        sys_print("\n");
+        clear_buffer(buffer);
     }
 
     else if(k_strcmp(first_arg, "ls") == 0){
@@ -94,7 +98,7 @@ void execute_command(){
         sys_print("\n");
     };
 
-    clear_buffer();
+    clear_buffer(command_buffer);
     sys_print(path);
 }
 
@@ -146,6 +150,14 @@ void user_shell_main(){
         }
 
     }
+}
+
+// The __attribute__((naked)) tells the compiler not to generate standard 
+// function prologue/epilogue, making it a pure entry point.
+__attribute__((naked, section(".text.entry"))) void _start() {
+    user_shell_main();
+    // 3. Fallback infinite loop (should never be reached)
+    while (1);
 }
 
 /* void user_shell_main() {

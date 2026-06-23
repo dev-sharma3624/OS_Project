@@ -523,7 +523,6 @@ void fat32_create_dir(char* dirName, uint32_t parent_dir_cluster){
 void fat32_list_all_entries(uint32_t dir_cluster){
 
     uint64_t buffer = heap_kmalloc(fat32_calc_get_bytes_per_sector());
-    k_printf("memory address recieved from heap_kmalloc: %p ---------%p\n", buffer, (buffer + fat32_calc_get_bytes_per_sector()));
     uint64_t dir_sector_lba_offsets[2] = {0, 0};
     fat32_calc_dir_offsets(dir_sector_lba_offsets, dir_cluster);
     uint32_t dir_sector_offset = dir_sector_lba_offsets[0];
@@ -543,7 +542,6 @@ void fat32_list_all_entries(uint32_t dir_cluster){
             fat32_directory_entry_t* directory = (fat32_directory_entry_t*)buffer;
 
             for (int i = 0; i < entries_per_sector; i++) {
-                k_printf("Reading address: %p\n", (uint64_t) directory);
                 if (directory[i].name[0] == 0x00) break;
 
                 // Check for Deleted File (0xE5)
