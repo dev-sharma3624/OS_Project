@@ -14,3 +14,4 @@ size_t get_heap_size();
 void heap_init();
 void* heap_kmalloc(size_t size);
 void heap_kfree(void* address);
+uint64_t get_heap_end_address();

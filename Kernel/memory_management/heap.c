@@ -169,3 +169,7 @@ void heap_kfree(void* address){
     }
 
 }
+
+uint64_t get_heap_end_address(){
+    return (uint64_t) heap_end_address;
+}
