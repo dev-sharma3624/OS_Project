@@ -5,7 +5,7 @@ set -e
 
 echo "=> Compiling Kernel C source files..."
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/main/kernel.c -o image/object/kernel.o
-gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/main/shell.c -o image/object/shell.o
+gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/main/elf_loader.c -o image/object/elf_loader.o
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/drivers/font_renderer.c -o image/object/font_renderer.o
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/libs/k_printf.c -o image/object/k_printf.o
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/libs/k_string.c -o image/object/k_string.o
@@ -51,8 +51,8 @@ ld -T image/linker.ld -o image/EFI/BOOT/kernel.elf image/object/kernel_jump_asm.
       image/object/m_bitmap.o image/object/pmm.o image/object/paging.o image/object/heap.o image/object/timer.o \
       image/object/interrupts_asm.o image/object/process.o image/object/scheduler.o image/object/switch_asm.o \
       image/object/push_pop_cli.o image/object/syscall_dispatcher.o image/object/pci.o image/object/nvme.o \
-      image/object/k_string.o image/object/gpt.o image/object/fat32.o image/object/syscalls.o image/object/shell.o \
+      image/object/k_string.o image/object/gpt.o image/object/fat32.o image/object/syscalls.o \
       image/object/fs_interface.o image/object/mm_utils.o image/object/nvme_interface.o image/object/fat32_calc.o \
-      image/object/ft_nvm_bridge.o
+      image/object/ft_nvm_bridge.o image/object/elf_loader.o
 
 echo "=> Build Complete! kernel.elf is ready."
