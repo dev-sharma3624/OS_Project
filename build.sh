@@ -36,6 +36,7 @@ gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/drivers/nvme_interface.c -o image/object/nvme_interface.o
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/file_system/fat32_calc.c -o image/object/fat32_calc.o
 gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/file_system/ft_nvm_bridge.c -o image/object/ft_nvm_bridge.o
+gcc -ffreestanding -mno-red-zone -mgeneral-regs-only -I Kernel/include -c Kernel/drivers/e1000.c -o image/object/e1000.o
 
 echo "=> Assembling hardware & context-switching ASM files..."
 nasm -f elf64 Kernel/architecture/x86_64/kernel_jump.asm -o image/object/kernel_jump_asm.o
@@ -53,6 +54,6 @@ ld -T image/linker.ld -o image/EFI/BOOT/kernel.elf image/object/kernel_jump_asm.
       image/object/push_pop_cli.o image/object/syscall_dispatcher.o image/object/pci.o image/object/nvme.o \
       image/object/k_string.o image/object/gpt.o image/object/fat32.o image/object/syscalls.o \
       image/object/fs_interface.o image/object/mm_utils.o image/object/nvme_interface.o image/object/fat32_calc.o \
-      image/object/ft_nvm_bridge.o image/object/elf_loader.o
+      image/object/ft_nvm_bridge.o image/object/elf_loader.o image/object/e1000.o
 
 echo "=> Build Complete! kernel.elf is ready."

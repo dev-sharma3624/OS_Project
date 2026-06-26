@@ -21,6 +21,7 @@
 #include <file_system/fat32.h>
 #include <file_system/fs_interface.h>
 #include "elf_loader.h"
+#include <drivers/e1000_discovery.h>
 
 boot_info_t boot_info;
 
@@ -108,16 +109,23 @@ void kernel_start(boot_info_t* boot_info_recieved){
     fat32_init(2048);
     font_renderer_clear_screen();
 
-    uint64_t buffer = heap_kmalloc(25 * 4096);
-    print_address_hex(buffer);
-    fs_read_file("SHL.ELF", buffer);
-    uint64_t* user_table = create_user_address_space();
-    elf_loader_result result = load_user_elf((uint8_t*) buffer, user_table);
-    create_user_task(result.entry_point, result.pages_needed, (paging_page_table_t*) user_table);
+    // uint64_t buffer = heap_kmalloc(25 * 4096);
+    // print_address_hex(buffer);
+    // fs_read_file("SHL.ELF", buffer);
+    // uint64_t* user_table = create_user_address_space();
+    // elf_loader_result result = load_user_elf((uint8_t*) buffer, user_table);
+    // create_user_task(result.entry_point, result.pages_needed, (paging_page_table_t*) user_table);
     font_renderer_clear_screen();
+
+    e1000_discovery();
 
     //enable interrupts
     __asm__ volatile ("sti");
+    
+    task_sleep(5000);
+    font_renderer_clear_screen();
+    k_printf("Starting test now: \n");
+    e1000_transmission_test();
 
     while(1);
 }

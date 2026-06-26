@@ -35,9 +35,11 @@
 
 //class codes
 #define CLASS_MASS_STORAGE 0x01
+#define CLASS_NETWORK_CONTROLLER 0x02
 
 //sub-class codes
 #define SUBCLASS_NVME 0x08
+#define SUBCLASS_ETHERNET_CONTROLLER 0x00
 
 
 typedef struct {

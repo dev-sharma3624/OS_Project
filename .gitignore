@@ -18,3 +18,4 @@ dist/*
 .DS_Store
 
 debug_build.sh
+qemu.sh
